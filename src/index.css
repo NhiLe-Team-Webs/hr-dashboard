@@ -9,7 +9,7 @@ All colors MUST be HSL.
 @layer base {
   :root {
     /* Modern HR Dashboard Color Palette */
-    --background: 250 250 252;
+    --background: 0 0 252;
     --foreground: 203 23% 20%;
 
     --card: 0 0% 100%;
