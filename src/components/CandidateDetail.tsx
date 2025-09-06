@@ -1,35 +1,19 @@
+// src/components/CandidateDetail.tsx
 import { Calendar, Archive, Mail, Phone, MessageCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { type Candidate } from '@/lib/mockData';
+import { getBandColor, getScoreColor } from '@/lib/utils'; // Import from utils
+import { useToast } from '@/components/ui/use-toast';
 
 interface CandidateDetailProps {
   candidate: Candidate;
 }
 
 export const CandidateDetail = ({ candidate }: CandidateDetailProps) => {
-  const getBandColor = (band: string | null) => {
-    switch (band) {
-      case 'A':
-        return 'text-success bg-success-light border-success/20';
-      case 'B':
-        return 'text-info bg-info-light border-info/20';
-      case 'C':
-        return 'text-warning bg-warning-light border-warning/20';
-      default:
-        return 'text-muted-foreground bg-muted border-border';
-    }
-  };
-
-  const getScoreColor = (score: number) => {
-    if (score >= 85) return 'text-success';
-    if (score >= 70) return 'text-info';
-    if (score >= 60) return 'text-warning';
-    return 'text-destructive';
-  };
-
+  const { toast } = useToast();
   return (
     <Card className="overflow-hidden">
       {/* Profile Header */}
@@ -138,23 +122,29 @@ export const CandidateDetail = ({ candidate }: CandidateDetailProps) => {
         <div className="border-t pt-6 flex gap-3">
           <Button 
             onClick={() => {
-              alert(`Đã gửi lời mời phỏng vấn cho ${candidate.userName} qua email ${candidate.email}`);
+              toast({
+                title: "Đã gửi lời mời phỏng vấn",
+                description: `Lời mời đã được gửi đến ${candidate.userName} qua email ${candidate.email}`,
+              });
             }}
             className="flex-1 bg-success hover:bg-success/90 text-success-foreground shadow-lg"
           >
             <Calendar className="w-4 h-4 mr-2" />
             Mời phỏng vấn
           </Button>
-          <Button 
+          {/* <Button 
             onClick={() => {
-              alert(`Đã lưu trữ hồ sơ của ${candidate.userName}`);
+              toast({
+                title: "Đã lưu trữ hồ sơ",
+                description: `Hồ sơ của ${candidate.userName} đã được lưu trữ thành công.`,
+              });
             }}
             variant="outline" 
             className="flex-1"
           >
             <Archive className="w-4 h-4 mr-2" />
             Lưu trữ
-          </Button>
+          </Button> */}
         </div>
       </div>
     </Card>
@@ -162,3 +152,5 @@ export const CandidateDetail = ({ candidate }: CandidateDetailProps) => {
 };
 
 export default CandidateDetail;
+
+//
