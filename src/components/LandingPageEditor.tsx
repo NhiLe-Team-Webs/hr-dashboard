@@ -1,100 +1,251 @@
-import { Layout, Palette, Type, Settings, Save } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
+import React, { useState, useEffect } from 'react';
+import { Button } from './ui/button';
+import { Badge } from './ui/badge';
+import { Card, CardContent } from './ui/card';
+import {
+  Eye,
+  Save,
+  Smartphone,
+  Monitor,
+  Undo2,
+  Redo2,
+  Mouse
+} from 'lucide-react';
+import { useToast } from './ui/use-toast';
+import { LandingPage } from '../types/landingPage';
+import { getLandingPageData, updateLandingPageData } from '../lib/mockApi';
+import LandingPagePreview from './LandingPagePreview';
 
-export const LandingPageEditor = () => {
-  return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">Chỉnh sửa Landing Page</h1>
-          <p className="text-muted-foreground mt-1">Tùy chỉnh trang giới thiệu và tuyển dụng</p>
+const LandingPageEditor: React.FC = () => {
+  const [formData, setFormData] = useState<LandingPage | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isPreviewMode, setIsPreviewMode] = useState(false);
+  const [viewport, setViewport] = useState<'desktop' | 'mobile'>('desktop');
+  const [hasChanges, setHasChanges] = useState(false);
+  const [history, setHistory] = useState<LandingPage[]>([]);
+  const [historyIndex, setHistoryIndex] = useState(-1);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    const fetchData = async () => {
+      setIsLoading(true);
+      try {
+        const data = await getLandingPageData();
+        setFormData(data);
+        setHistory([data]);
+        setHistoryIndex(0);
+      } catch (error) {
+        toast({
+          title: 'Lỗi',
+          description: 'Không thể tải dữ liệu trang landing page.',
+          variant: 'destructive',
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const addToHistory = (newData: LandingPage) => {
+    // limit history length to 30 for safety
+    const head = history.slice(0, historyIndex + 1);
+    const newHistory = [...head, newData].slice(-30);
+    const newIndex = newHistory.length - 1;
+    setHistory(newHistory);
+    setHistoryIndex(newIndex);
+  };
+
+  const handleUpdate = (updates: Partial<LandingPage>) => {
+    if (!formData) return;
+    const newData = { ...formData, ...updates };
+    setFormData(newData);
+    setHasChanges(true);
+    addToHistory(newData);
+  };
+
+  const handleUndo = () => {
+    if (historyIndex > 0) {
+      const newIndex = historyIndex - 1;
+      setHistoryIndex(newIndex);
+      setFormData(history[newIndex]);
+      setHasChanges(true);
+    }
+  };
+
+  const handleRedo = () => {
+    if (historyIndex < history.length - 1) {
+      const newIndex = historyIndex + 1;
+      setHistoryIndex(newIndex);
+      setFormData(history[newIndex]);
+      setHasChanges(true);
+    }
+  };
+
+  const handleSave = async () => {
+    if (!formData) return;
+    try {
+      await updateLandingPageData(formData);
+      setHasChanges(false);
+      toast({
+        title: 'Đã lưu',
+        description: 'Landing page đã được cập nhật và công khai.',
+      });
+    } catch (error) {
+      toast({
+        title: 'Lỗi khi lưu',
+        description: 'Có lỗi xảy ra, thử lại sau.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2" />
+          <p>Đang tải trình chỉnh sửa...</p>
         </div>
-        <Button className="bg-gradient-to-r from-primary to-primary-hover hover:from-primary-hover hover:to-primary shadow-lg">
-          <Save className="w-4 h-4 mr-2" />
-          Lưu thay đổi
-        </Button>
       </div>
+    );
+  }
 
-      {/* Content */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Editor Options */}
-        <div className="space-y-6">
-          <Card className="p-6">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="p-2 bg-primary/10 rounded-lg">
-                <Layout className="w-5 h-5 text-primary" />
-              </div>
-              <h3 className="text-lg font-semibold text-foreground">Bố cục trang</h3>
-            </div>
-            <p className="text-muted-foreground">
-              Tùy chỉnh cấu trúc và layout của trang landing page
-            </p>
-          </Card>
-
-          <Card className="p-6">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="p-2 bg-success/10 rounded-lg">
-                <Palette className="w-5 h-5 text-success" />
-              </div>
-              <h3 className="text-lg font-semibold text-foreground">Màu sắc & Thiết kế</h3>
-            </div>
-            <p className="text-muted-foreground">
-              Điều chỉnh phối màu và style tổng thể của trang
-            </p>
-          </Card>
-
-          <Card className="p-6">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="p-2 bg-info/10 rounded-lg">
-                <Type className="w-5 h-5 text-info" />
-              </div>
-              <h3 className="text-lg font-semibold text-foreground">Nội dung văn bản</h3>
-            </div>
-            <p className="text-muted-foreground">
-              Chỉnh sửa tiêu đề, mô tả và các nội dung văn bản
-            </p>
-          </Card>
-
-          <Card className="p-6">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="p-2 bg-warning/10 rounded-lg">
-                <Settings className="w-5 h-5 text-warning" />
-              </div>
-              <h3 className="text-lg font-semibold text-foreground">Cài đặt nâng cao</h3>
-            </div>
-            <p className="text-muted-foreground">
-              Cấu hình SEO, analytics và các tính năng khác
-            </p>
-          </Card>
+  if (!formData) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <p className="text-red-600">Lỗi khi tải dữ liệu.</p>
+          <Button onClick={() => window.location.reload()} className="mt-2">
+            Thử lại
+          </Button>
         </div>
+      </div>
+    );
+  }
 
-        {/* Preview */}
-        <Card className="p-6">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-lg font-semibold text-foreground">Xem trước</h3>
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm">Desktop</Button>
-              <Button variant="outline" size="sm">Mobile</Button>
-            </div>
+  return (
+    <div className="min-h-screen bg-slate-50">
+      {/* Top toolbar */}
+      <div className="bg-white border-b px-6 py-4 sticky top-0 z-10 shadow-sm">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <h1 className="text-lg font-semibold text-slate-900">Trình chỉnh sửa Landing Page</h1>
+            {hasChanges && (
+              <Badge variant="destructive" className="animate-pulse">
+                Thay đổi chưa lưu
+              </Badge>
+            )}
           </div>
-          
-          <div className="border-2 border-dashed border-muted rounded-lg p-8 text-center min-h-[400px] flex items-center justify-center">
-            <div className="space-y-4">
-              <Layout className="w-12 h-12 text-muted-foreground mx-auto" />
-              <h4 className="text-lg font-semibold text-foreground">Landing Page Preview</h4>
-              <p className="text-muted-foreground max-w-md">
-                Khu vực xem trước trang landing page sẽ hiển thị tại đây. 
-                Chọn các tùy chọn bên trái để bắt đầu tùy chỉnh.
-              </p>
-              <Button className="mt-4">
-                Bắt đầu tùy chỉnh
+
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleUndo}
+              disabled={historyIndex <= 0 || isPreviewMode}
+              title="Hoàn tác (Undo)"
+            >
+              <Undo2 className="w-4 h-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleRedo}
+              disabled={historyIndex >= history.length - 1 || isPreviewMode}
+              title="Làm lại (Redo)"
+            >
+              <Redo2 className="w-4 h-4" />
+            </Button>
+
+            <div className="w-px h-6 bg-slate-200 mx-2" />
+
+            <div className="flex items-center rounded-md p-1 bg-slate-100">
+              <Button
+                variant={viewport === 'desktop' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setViewport('desktop')}
+                className="h-8"
+                title="Xem máy tính"
+              >
+                <Monitor className="w-4 h-4" />
+              </Button>
+              <Button
+                variant={viewport === 'mobile' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setViewport('mobile')}
+                className="h-8"
+                title="Xem di động"
+              >
+                <Smartphone className="w-4 h-4" />
               </Button>
             </div>
+
+            <div className="w-px h-6 bg-slate-200 mx-2" />
+
+            <Button
+              variant={isPreviewMode ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setIsPreviewMode(!isPreviewMode)}
+              title={isPreviewMode ? 'Thoát xem trước' : 'Xem trước'}
+            >
+              <Eye className="w-4 h-4 mr-2" />
+              {isPreviewMode ? 'Thoát' : 'Xem trước'}
+            </Button>
+
+            <Button
+              onClick={handleSave}
+              disabled={!hasChanges}
+              className="ml-2 bg-primary text-white hover:bg-primary/90 disabled:opacity-60"
+            >
+              <Save className="w-4 h-4 mr-2" />
+              Lưu & Đăng tải
+            </Button>
           </div>
-        </Card>
+        </div>
       </div>
+
+      {/* Main */}
+      <div className="p-6">
+        {!isPreviewMode && (
+          <div className="mb-6">
+            <Card className="bg-sky-50 border-sky-100">
+              <CardContent className="p-4">
+                <div className="flex items-start gap-3">
+                  <div className="p-2 rounded bg-sky-100">
+                    <Mouse className="w-5 h-5 text-sky-700" />
+                  </div>
+                  <div>
+                    <div className="font-medium text-sky-800">Chế độ chỉnh sửa</div>
+                    <p className="text-sm text-sky-700/90 mt-1">
+                      Chọn phần tử để chỉnh sửa. Thay đổi sẽ tự lưu khi bạn rời khỏi trường (auto-save).
+                      Dùng Undo/Redo nếu cần.
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        <div className={`transition-all duration-300 ${viewport === 'mobile' ? 'max-w-sm mx-auto' : 'max-w-6xl mx-auto'}`}>
+          <LandingPagePreview
+            data={formData}
+            onUpdate={handleUpdate}
+            isEditable={!isPreviewMode}
+            viewport={viewport}
+          />
+        </div>
+      </div>
+
+      {viewport === 'mobile' && (
+        <div className="fixed bottom-4 right-4 z-20">
+          <Badge variant="secondary" className="shadow-md bg-slate-700 text-white">
+            📱 Di động
+          </Badge>
+        </div>
+      )}
     </div>
   );
 };

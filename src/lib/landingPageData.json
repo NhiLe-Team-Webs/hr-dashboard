@@ -1,0 +1,32 @@
+{
+  "heroTitle": "Welcome to Our Company",
+  "heroSubtitle": "Find your perfect role and thrive with us! Join our team of innovative professionals who are passionate about making a difference.",
+  "heroImage": "https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=1200&h=600&fit=crop&crop=center",
+  "features": [
+    {
+      "title": "Personalized Assessment", 
+      "description": "Take a comprehensive test that matches your personality, skills, and career aspirations.",
+      "icon": "🌟"
+    },
+    {
+      "title": "Culture Fit Analysis",
+      "description": "Discover how well you align with our company culture and values.",
+      "icon": "🌱"
+    },
+    {
+      "title": "Career Growth Path",
+      "description": "Explore tailored career development opportunities within our organization.",
+      "icon": "🚀"
+    }
+  ],
+  "callToAction": {
+    "text": "Start Your Assessment",
+    "link": "/assessment"
+  },
+  "aPlayerCandidate": {
+    "image": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&h=200&fit=crop&crop=face",
+    "name": "Nguyễn Văn A",
+    "description": "Senior Full-Stack Developer with 5+ years experience in React, Node.js, and cloud technologies. Passionate about creating scalable solutions.",
+    "fitScore": "97%"
+  }
+}
