@@ -160,3 +160,5 @@ export const CandidateDetail = ({ candidate }: CandidateDetailProps) => {
     </Card>
   );
 };
+
+export default CandidateDetail;

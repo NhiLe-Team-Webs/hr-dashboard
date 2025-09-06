@@ -30,7 +30,7 @@ export const Analytics = () => {
     if (bandChartRef.current) {
       const bandCounts = { A: 0, B: 0, C: 0 };
       completedCandidates.forEach(c => {
-        if (c.band && bandCounts.hasOwnProperty(c.band)) {
+        if (c.band && Object.prototype.hasOwnProperty.call(bandCounts, c.band)) {
           bandCounts[c.band as keyof typeof bandCounts]++;
         }
       });
@@ -149,3 +149,5 @@ export const Analytics = () => {
     </div>
   );
 };
+
+export default Analytics;

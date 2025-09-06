@@ -98,3 +98,5 @@ export const LandingPageEditor = () => {
     </div>
   );
 };
+
+export default LandingPageEditor;

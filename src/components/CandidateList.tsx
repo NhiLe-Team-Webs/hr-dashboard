@@ -163,3 +163,5 @@ export const CandidateList = () => {
     </div>
   );
 };
+
+export default CandidateList;

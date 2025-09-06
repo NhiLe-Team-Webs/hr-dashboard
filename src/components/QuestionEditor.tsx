@@ -203,3 +203,5 @@ export const QuestionEditor = () => {
     </div>
   );
 };
+
+export default QuestionEditor;
