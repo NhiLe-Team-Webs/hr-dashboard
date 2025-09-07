@@ -1,27 +1,22 @@
-// src/components/QuestionList.tsx
-import { useState } from 'react';
+// src/components/QuestionEditor/QuestionList.tsx
+import { useState, Dispatch, SetStateAction, useCallback } from 'react';
 import { Plus, Edit3, Trash2, FileText, ChevronDown, ChevronUp, Copy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { toast } from '@/components/ui/use-toast';
-import { QuestionsByRole, Question } from '@/types/question';
+import { QuestionsByRole, Question, QuestionTypeInfo } from '@/types/question';
+import { deleteQuestion as apiDeleteQuestion } from '@/lib/api';
 
 // Định nghĩa types cho component
-interface QuestionType {
-  value: string;
-  label: string;
-  color: string;
-}
-
 interface QuestionListProps {
-  questions: Question[];  
+  questions: Question[];
   selectedRole: string;
-  roles: string[];
+  roles: string[]; // Thêm prop roles
   setEditingQuestion: (question: Question) => void;
-  setQuestions: (questions: QuestionsByRole | ((prev: QuestionsByRole) => QuestionsByRole)) => void;
+  setQuestions: Dispatch<SetStateAction<QuestionsByRole>>;
   setIsCreating: (isCreating: boolean) => void;
-  initialQuestionTypes: QuestionType[];
+  initialQuestionTypes: QuestionTypeInfo[];
   handleStartCreate: () => void;
 }
 
@@ -31,42 +26,60 @@ const QuestionList: React.FC<QuestionListProps> = ({
   setEditingQuestion,
   setQuestions,
   initialQuestionTypes,
-  handleStartCreate
+  handleStartCreate,
+  roles // Thêm roles vào destructuring
 }) => {
-  const [expandedQuestions, setExpandedQuestions] = useState(new Set());
+  const [expandedQuestions, setExpandedQuestions] = useState(new Set<string>());
   
-  const getQuestionTypeInfo = (type) => {
+  const getQuestionTypeInfo = useCallback((type: string) => {
     return initialQuestionTypes.find(t => t.value === type) || initialQuestionTypes[0];
-  };
+  }, [initialQuestionTypes]);
 
-  const toggleExpanded = (questionId) => {
-    const newExpanded = new Set(expandedQuestions);
-    if (newExpanded.has(questionId)) {
-      newExpanded.delete(questionId);
-    } else {
-      newExpanded.add(questionId);
-    }
-    setExpandedQuestions(newExpanded);
-  };
+  const toggleExpanded = useCallback((questionId: string) => {
+    setExpandedQuestions(prev => {
+      const newExpanded = new Set(prev);
+      if (newExpanded.has(questionId)) {
+        newExpanded.delete(questionId);
+      } else {
+        newExpanded.add(questionId);
+      }
+      return newExpanded;
+    });
+  }, []);
   
-  const duplicateQuestion = (question: Question) => {
-    const duplicated: Question = { ...question, id: Date.now().toString(), text: `${question.text} (Bản sao)` };
-    setQuestions((prev: QuestionsByRole): QuestionsByRole => ({
-      ...prev,
-      [selectedRole]: [...(prev[selectedRole] || []), duplicated]
-    }));
-    toast({ title: 'Thành công', description: 'Đã sao chép câu hỏi' });
-  };
-  
-  const deleteQuestion = (questionId: string) => {
-    if (confirm('Bạn có chắc chắn muốn xóa câu hỏi này?')) {
-      setQuestions((prev: QuestionsByRole): QuestionsByRole => ({
+  const handleDuplicateQuestion = useCallback((question: Question) => {
+    const duplicated = { ...question, id: Date.now().toString(), text: `${question.text} (Bản sao)` };
+    setQuestions(prev => {
+      const newQuestions = {
         ...prev,
-        [selectedRole]: prev[selectedRole].filter(q => q.id !== questionId)
-      }));
-      toast({ title: 'Thành công', description: 'Đã xóa câu hỏi' });
+        [selectedRole]: [...(prev[selectedRole] || []), duplicated]
+      };
+      return newQuestions;
+    });
+    toast({ title: 'Thành công', description: 'Đã sao chép câu hỏi' });
+  }, [selectedRole, setQuestions, toast]);
+
+  const handleDeleteQuestion = useCallback(async (questionId: string) => {
+    if (confirm('Bạn có chắc chắn muốn xóa câu hỏi này?')) {
+      try {
+        await apiDeleteQuestion(questionId);
+        setQuestions(prev => {
+          const newQuestions = {
+            ...prev,
+            [selectedRole]: prev[selectedRole].filter(q => q.id !== questionId)
+          };
+          return newQuestions;
+        });
+        toast({ title: 'Thành công', description: 'Đã xóa câu hỏi' });
+      } catch (error) {
+        toast({
+          title: 'Lỗi',
+          description: 'Không thể xóa câu hỏi.',
+          variant: 'destructive',
+        });
+      }
     }
-  };
+  }, [selectedRole, setQuestions, toast]);
 
   return (
     <>
@@ -95,9 +108,6 @@ const QuestionList: React.FC<QuestionListProps> = ({
                         )}
                         <span>{question.format === 'text' ? 'Tự luận' : 'Trắc nghiệm'}</span>
                       </div>
-                      <Badge variant="outline" className="text-xs">
-                        {question.points} điểm
-                      </Badge>
                     </div>
                     <div className="flex items-center gap-1">
                       <Button
@@ -111,7 +121,7 @@ const QuestionList: React.FC<QuestionListProps> = ({
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => duplicateQuestion(question)}
+                        onClick={() => handleDuplicateQuestion(question)}
                         className="text-gray-500 hover:text-blue-600"
                       >
                         <Copy className="w-4 h-4" />
@@ -127,7 +137,7 @@ const QuestionList: React.FC<QuestionListProps> = ({
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => deleteQuestion(question.id)}
+                        onClick={() => handleDeleteQuestion(question.id)}
                         className="text-gray-500 hover:text-red-600"
                       >
                         <Trash2 className="w-4 h-4" />

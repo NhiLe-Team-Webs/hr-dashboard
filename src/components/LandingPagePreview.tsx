@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { LandingPage } from '../types/landingPage';
 import { useToast } from './ui/use-toast';
+import { updateLandingPageData } from '../lib/api';
 
 interface LandingPagePreviewProps {
   data: LandingPage;
@@ -26,11 +27,7 @@ interface LandingPagePreviewProps {
 }
 
 /**
- * EditableText: lightweight inline editor with:
- * - click to edit
- * - auto-save onBlur
- * - small floating icons for confirm/cancel (visible while editing)
- * - subtle outline while editing
+ * EditableText: lightweight inline editor
  */
 const EditableText: React.FC<{
   value: string;
@@ -43,91 +40,97 @@ const EditableText: React.FC<{
 }> = ({ value, onSave, placeholder, multiline = false, className = '', isEditable, ariaLabel }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [tempValue, setTempValue] = useState(value);
-  const [justSaved, setJustSaved] = useState(false);
+  const inputRef = React.useRef<HTMLInputElement | HTMLTextAreaElement>(null);
+  const { toast } = useToast();
 
   useEffect(() => {
     setTempValue(value);
   }, [value]);
 
-  const commit = () => {
+  const commit = useCallback(async () => {
     if (tempValue !== value) {
       onSave(tempValue);
-      setJustSaved(true);
-      setTimeout(() => setJustSaved(false), 900);
+      try {
+        await updateLandingPageData({ heroTitle: tempValue });
+        toast({ title: 'Đã lưu', description: 'Nội dung đã được cập nhật.' });
+      } catch (error) {
+        toast({ title: 'Lỗi', description: 'Không thể lưu nội dung.', variant: 'destructive' });
+      }
     }
     setIsEditing(false);
-  };
+  }, [tempValue, value, onSave, toast]);
 
-  const cancel = () => {
+  const cancel = useCallback(() => {
     setTempValue(value);
     setIsEditing(false);
-  };
+  }, [value]);
+
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !multiline && !e.shiftKey) {
+      e.preventDefault();
+      commit();
+    } else if (e.key === 'Escape') {
+      cancel();
+    }
+  }, [commit, cancel, multiline]);
 
   if (!isEditable) {
-    return <div className={className}>{value || <span className="text-slate-400 italic">{placeholder}</span>}</div>;
+    return (
+      <div className={className}>
+        {value || <span className="text-slate-400 italic">{placeholder}</span>}
+      </div>
+    );
+  }
+
+  if (isEditing) {
+    return (
+      <div className="relative">
+        {multiline ? (
+          <Textarea
+            ref={inputRef as React.Ref<HTMLTextAreaElement>}
+            value={tempValue}
+            onChange={(e) => setTempValue(e.target.value)}
+            onBlur={commit}
+            onKeyDown={handleKeyDown}
+            placeholder={placeholder}
+            autoFocus
+            className="min-h-[80px] p-2 rounded border border-slate-200 focus:ring-2 focus:ring-primary/30"
+          />
+        ) : (
+          <Input
+            ref={inputRef as React.Ref<HTMLInputElement>}
+            value={tempValue}
+            onChange={(e) => setTempValue(e.target.value)}
+            onBlur={commit}
+            onKeyDown={handleKeyDown}
+            placeholder={placeholder}
+            autoFocus
+            className="p-2 rounded border border-slate-200 focus:ring-2 focus:ring-primary/30"
+          />
+        )}
+      </div>
+    );
   }
 
   return (
-    <div className={`relative ${className}`}>
-      {!isEditing ? (
-        <div
-          role="button"
-          tabIndex={0}
-          aria-label={ariaLabel}
-          onClick={() => setIsEditing(true)}
-          onKeyDown={(e) => { if (e.key === 'Enter') setIsEditing(true); }}
-          className="cursor-pointer hover:bg-slate-50 rounded p-1 transition"
-        >
-          <div className={`inline-flex items-center gap-2 ${justSaved ? 'bg-emerald-50 rounded px-2 py-1' : ''}`}>
-            <span className="select-text">{value || <span className="text-slate-400 italic">{placeholder}</span>}</span>
-            <span className="ml-1 text-slate-400">
-              <Edit3 className="w-4 h-4" />
-            </span>
-          </div>
-        </div>
-      ) : (
-        <div className="relative">
-          {multiline ? (
-            <Textarea
-              value={tempValue}
-              onChange={(e) => setTempValue(e.target.value)}
-              onBlur={commit}
-              placeholder={placeholder}
-              autoFocus
-              className="min-h-[80px] p-2 rounded border border-slate-200 focus:ring-2 focus:ring-primary/30"
-            />
-          ) : (
-            <Input
-              value={tempValue}
-              onChange={(e) => setTempValue(e.target.value)}
-              onBlur={commit}
-              placeholder={placeholder}
-              autoFocus
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  commit();
-                } else if (e.key === 'Escape') {
-                  cancel();
-                }
-              }}
-              className="p-2 rounded border border-slate-200 focus:ring-2 focus:ring-primary/30"
-            />
-          )}
-
-          <div className="absolute top-1 right-1 flex gap-1">
-            <Button onClick={commit} size="sm" variant="ghost" title="Lưu">
-              <Check className="w-4 h-4 text-emerald-600" />
-            </Button>
-            <Button onClick={cancel} size="sm" variant="ghost" title="Hủy">
-              <X className="w-4 h-4 text-rose-600" />
-            </Button>
-          </div>
-        </div>
-      )}
+    <div
+      role="button"
+      tabIndex={0}
+      aria-label={ariaLabel}
+      onClick={() => setIsEditing(true)}
+      onKeyDown={(e) => { if (e.key === 'Enter') setIsEditing(true); }}
+      className={`relative cursor-pointer p-1 rounded transition hover:bg-slate-50 ${className}`}
+    >
+      <div className={`inline-flex items-center gap-2`}>
+        <span className="select-text">{value || <span className="text-slate-400 italic">{placeholder}</span>}</span>
+        <span className="ml-1 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity">
+          <Edit3 className="w-4 h-4" />
+        </span>
+      </div>
     </div>
   );
 };
+
 
 const LandingPagePreview: React.FC<LandingPagePreviewProps> = ({
   data,
@@ -137,16 +140,11 @@ const LandingPagePreview: React.FC<LandingPagePreviewProps> = ({
 }) => {
   const { toast } = useToast();
 
-  // small wrapper to show toast feedback for "image changed"
-  const showToast = (msg: string) => {
-    toast({ title: 'Thông báo', description: msg });
-  };
-
-  const handleTextUpdate = (field: keyof LandingPage, value: string) => {
+  const handleTextUpdate = useCallback((field: keyof LandingPage, value: string) => {
     onUpdate({ [field]: value } as Partial<LandingPage>);
-  };
+  }, [onUpdate]);
 
-  const handleNestedUpdate = <
+  const handleNestedUpdate = useCallback(<
     P extends keyof LandingPage,
     C extends keyof LandingPage[P]
   >(parent: P, child: C, value: LandingPage[P][C]) => {
@@ -159,27 +157,35 @@ const LandingPagePreview: React.FC<LandingPagePreviewProps> = ({
         }
       } as Partial<LandingPage>);
     }
-  };
+  }, [data, onUpdate]);
 
   const handleImageUpload =
     (field: 'heroImage' | 'candidateImage') =>
-    (e: React.ChangeEvent<HTMLInputElement>) => {
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
       if (!file) return;
+
       const reader = new FileReader();
-      reader.onloadend = () => {
+      reader.onloadend = async () => {
         const base = reader.result as string;
-        if (field === 'heroImage') {
-          onUpdate({ heroImage: base });
-          showToast('Ảnh chính đã được cập nhật');
-        } else {
-          onUpdate({
-            aPlayerCandidate: {
-              ...data.aPlayerCandidate,
-              image: base,
-            }
-          } as Partial<LandingPage>);
-          showToast('Ảnh ứng viên đã được cập nhật');
+        try {
+          if (field === 'heroImage') {
+            await updateLandingPageData({ heroImage: base });
+            onUpdate({ heroImage: base });
+          } else {
+            await updateLandingPageData({
+              aPlayerCandidate: { ...data.aPlayerCandidate, image: base },
+            });
+            onUpdate({
+              aPlayerCandidate: {
+                ...data.aPlayerCandidate,
+                image: base,
+              },
+            } as Partial<LandingPage>);
+          }
+          toast({ title: 'Thành công', description: 'Đã cập nhật hình ảnh.' });
+        } catch (error) {
+          toast({ title: 'Lỗi', description: 'Không thể lưu hình ảnh.', variant: 'destructive' });
         }
       };
       reader.readAsDataURL(file);
@@ -189,23 +195,21 @@ const LandingPagePreview: React.FC<LandingPagePreviewProps> = ({
     <div className={`relative border rounded-lg overflow-hidden ${viewport === 'mobile' ? 'max-w-md mx-auto' : ''} bg-white shadow-sm`}>
       {/* HERO */}
       <div
-        className="relative h-64 bg-center bg-cover"
+        className="relative h-64 bg-center bg-cover group"
         style={{ backgroundImage: `url(${data.heroImage || ''})`, backgroundColor: '#f3f4f6' }}
       >
         <div className="absolute inset-0 bg-black/45 flex items-center justify-center p-4 text-white">
           <div className="text-center space-y-4 w-full max-w-2xl">
             <EditableText
-              value={data.heroTitle}
+              value={data.heroTitle || ''}
               onSave={(v) => handleTextUpdate('heroTitle', v)}
               placeholder="Nhập tiêu đề chính..."
               isEditable={isEditable}
               ariaLabel="Chỉnh tiêu đề chính"
-            >
-              {/* children ignored - EditableText renders value */}
-            </EditableText>
+            />
 
             <EditableText
-              value={data.heroSubtitle}
+              value={data.heroSubtitle || ''}
               onSave={(v) => handleTextUpdate('heroSubtitle', v)}
               placeholder="Nhập tiêu đề phụ..."
               multiline
@@ -214,20 +218,23 @@ const LandingPagePreview: React.FC<LandingPagePreviewProps> = ({
             />
 
             <div className="mt-4">
-              <EditableText
-                value={data.callToAction.text}
-                onSave={(v) => handleNestedUpdate('callToAction', 'text', v)}
-                placeholder="Văn bản nút hành động"
-                isEditable={isEditable}
-                ariaLabel="Chỉnh CTA"
-              />
+              <Button variant="secondary" className="mt-6">
+                <EditableText
+                  value={data.callToAction?.text || ''}
+                  onSave={(v) => handleNestedUpdate('callToAction', 'text', v)}
+                  placeholder="Văn bản nút hành động"
+                  isEditable={isEditable}
+                  ariaLabel="Chỉnh CTA"
+                  className="text-white"
+                />
+              </Button>
             </div>
           </div>
         </div>
 
         {/* image control (upload) */}
         {isEditable && (
-          <div className="absolute top-4 right-4 opacity-90">
+          <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
             <Popover>
               <PopoverTrigger asChild>
                 <Button size="sm" variant="outline" className="bg-white/90 text-slate-900">
@@ -268,17 +275,17 @@ const LandingPagePreview: React.FC<LandingPagePreviewProps> = ({
           <Card className={`mx-auto ${isEditable ? 'hover:shadow transition' : ''} max-w-sm`}>
             <CardContent className={`${viewport === 'mobile' ? 'p-4' : 'p-6'}`}>
               <div className="flex flex-col items-center gap-4">
-                <div className="relative">
+                <div className="relative group">
                   <div className="w-24 h-24 rounded-full overflow-hidden border-2 border-primary">
                     <img
-                      src={data.aPlayerCandidate.image}
-                      alt={data.aPlayerCandidate.name}
+                      src={data.aPlayerCandidate?.image || ''}
+                      alt={data.aPlayerCandidate?.name || 'Candidate image'}
                       className="object-cover w-full h-full"
                     />
                   </div>
 
                   {isEditable && (
-                    <div className="absolute -top-2 -right-2">
+                    <div className="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 transition-opacity">
                       <Popover>
                         <PopoverTrigger asChild>
                           <Button size="sm" variant="outline" className="w-8 h-8 p-0 rounded-full bg-white/90 text-slate-900">
@@ -301,14 +308,14 @@ const LandingPagePreview: React.FC<LandingPagePreviewProps> = ({
                 </div>
 
                 <EditableText
-                  value={data.aPlayerCandidate.name}
+                  value={data.aPlayerCandidate?.name || ''}
                   onSave={(v) => handleNestedUpdate('aPlayerCandidate', 'name', v)}
                   placeholder="Tên ứng viên..."
                   isEditable={isEditable}
                 />
 
                 <EditableText
-                  value={data.aPlayerCandidate.description}
+                  value={data.aPlayerCandidate?.description || ''}
                   onSave={(v) => handleNestedUpdate('aPlayerCandidate', 'description', v)}
                   placeholder="Mô tả ứng viên..."
                   multiline
@@ -317,7 +324,7 @@ const LandingPagePreview: React.FC<LandingPagePreviewProps> = ({
 
                 <div className="mt-1">
                   <EditableText
-                    value={data.aPlayerCandidate.fitScore}
+                    value={data.aPlayerCandidate?.fitScore || ''}
                     onSave={(v) => handleNestedUpdate('aPlayerCandidate', 'fitScore', v)}
                     placeholder="Ví dụ: 97%"
                     isEditable={isEditable}

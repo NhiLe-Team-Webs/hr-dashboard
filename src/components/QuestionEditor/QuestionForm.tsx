@@ -7,7 +7,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Question, Option } from '@/types/question';
+import { Question, Option, QuestionTypeInfo } from '@/types/question';
+import { createQuestion, updateQuestion } from '@/lib/api';
+import { toast } from '@/components/ui/use-toast';
 
 // Định nghĩa types cho component
 interface QuestionFormProps {
@@ -19,6 +21,16 @@ interface QuestionFormProps {
   targetRole?: string;
   roles?: string[];
   setTargetRole?: (value: string) => void;
+}
+
+// New interface for form data
+interface QuestionFormData {
+  text: string;
+  type: string;
+  format: string;  
+  required: boolean;
+  options: Option[];
+  correctAnswer: string;
 }
 
 const QuestionForm: React.FC<QuestionFormProps> = ({ 
@@ -39,12 +51,11 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
     role?: string;
   }
 
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<QuestionFormData>({
     text: question?.text || '',
     type: question?.type || 'Work Sample',
     format: question?.format || 'text',
     required: question?.required !== undefined ? question.required : true,
-    points: question?.points || 5,
     options: question?.options && question.options.length > 0 ? [...question.options] : [{ id: 'a', text: '' }, { id: 'b', text: '' }],
     correctAnswer: question?.correctAnswer || 'a'
   });
@@ -74,17 +85,53 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = () => {
-    if (validateForm()) {
-      const processedData: Question = {
-        ...formData,
-        format: formData.format as 'text' | 'multiple_choice',
-        options: formData.format === 'multiple_choice' ? formData.options.filter(opt => opt.text.trim()) : [],
-        id: question?.id || Date.now().toString()
-      };
-      onSubmit(processedData, targetRole);
+  const handleSubmit = async () => {
+  if (validateForm()) {
+    const processedData: Question = {
+      id: question?.id || Date.now().toString(),
+      text: formData.text,
+      type: formData.type,
+      format: formData.format as 'text' | 'multiple_choice',
+      required: formData.required,
+      options: formData.format === 'multiple_choice' ? formData.options.filter(opt => opt.text.trim()) : undefined,
+      correctAnswer: formData.format === 'multiple_choice' ? formData.correctAnswer : undefined,
+    };
+
+    // Additional validation for multiple-choice questions
+    if (formData.format === 'multiple_choice' && processedData.options!.length < 2) {
+      setErrors(prev => ({
+        ...prev,
+        options: 'Cần ít nhất hai phương án trả lời cho câu hỏi trắc nghiệm.',
+      }));
+      return;
     }
-  };
+
+    try {
+      if (isEdit) {
+        await updateQuestion(processedData);
+        toast({
+          title: 'Thành công',
+          description: 'Câu hỏi đã được cập nhật.',
+        });
+      } else {
+        const newQuestion = await createQuestion(processedData, targetRole);
+        onSubmit(newQuestion, targetRole);
+        toast({
+          title: 'Thành công',
+          description: 'Câu hỏi đã được tạo.',
+        });
+      }
+      onCancel();
+    } catch (error) {
+      toast({
+        title: 'Lỗi',
+        description: isEdit ? 'Không thể cập nhật câu hỏi.' : 'Không thể tạo câu hỏi.',
+        variant: 'destructive',
+      });
+      console.error('Lỗi khi gửi form:', error);
+    }
+  }
+};
 
   const addOption = () => {
     const nextId = String.fromCharCode(97 + formData.options.length);
@@ -177,17 +224,6 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
               <SelectItem value="multiple_choice">Trắc nghiệm</SelectItem>
             </SelectContent>
           </Select>
-        </div>
-
-        <div>
-          <Label>Điểm số</Label>
-          <Input
-            type="number"
-            min="1"
-            max="20"
-            value={formData.points}
-            onChange={(e) => setFormData(prev => ({ ...prev, points: parseInt(e.target.value) || 5 }))}
-          />
         </div>
       </div>
 

@@ -1,4 +1,4 @@
-// src/types/question.ts 
+// src/types/question.ts
 
 export interface Option {
   id: string;
@@ -11,12 +11,16 @@ export interface Question {
   type: string;
   format: 'text' | 'multiple_choice';
   required: boolean;
-  points: number;
   options?: Option[];
   correctAnswer?: string;
 }
 
-// Thêm interface mới này
 export interface QuestionsByRole {
   [role: string]: Question[];
+}
+
+export interface QuestionTypeInfo {
+  value: string;
+  label: string;
+  color: string;
 }

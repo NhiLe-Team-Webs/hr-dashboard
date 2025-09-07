@@ -1,7 +1,20 @@
-import { useEffect, useRef } from 'react';
+// src/components/Analytics.tsx
+import { useEffect, useRef, useState } from 'react';
 import { Card } from '@/components/ui/card';
-import { mockCandidates } from '@/lib/mockData';
+import { getAnalyticsData } from '@/lib/api';
 import Chart from 'chart.js/auto';
+
+// Khai báo một interface để đảm bảo type an toàn
+interface CandidateData {
+  id: string;
+  name: string;
+  role: string;
+  band: string | null;
+  status: 'completed' | 'in-progress';
+  scores: {
+    overall: number | null;
+  };
+}
 
 export const Analytics = () => {
   const bandChartRef = useRef<HTMLCanvasElement>(null);
@@ -9,13 +22,30 @@ export const Analytics = () => {
   const bandChartInstance = useRef<Chart | null>(null);
   const roleChartInstance = useRef<Chart | null>(null);
 
-  const completedCandidates = mockCandidates.filter(c => c.status === 'completed');
-  const totalCandidates = mockCandidates.length;
+  const [candidates, setCandidates] = useState<CandidateData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const completedCandidates = candidates.filter(c => c.status === 'completed');
+  const totalCandidates = candidates.length;
   const completionRate = totalCandidates > 0 ? (completedCandidates.length / totalCandidates) * 100 : 0;
   
-  const totalScore = completedCandidates.reduce((sum, c) => sum + (c.scores?.overall || 0), 0);
-  const avgScore = completedCandidates.length > 0 ? totalScore / completedCandidates.length : 0;
   const aPlayers = completedCandidates.filter(c => c.band === 'A').length;
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const data = await getAnalyticsData();
+        setCandidates(data);
+      } catch (err) {
+        setError("Không thể tải dữ liệu phân tích.");
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
 
   useEffect(() => {
     // Cleanup existing charts
@@ -65,7 +95,7 @@ export const Analytics = () => {
     // Role Chart
     if (roleChartRef.current) {
       const roleCounts: Record<string, number> = {};
-      mockCandidates.forEach(c => {
+      candidates.forEach(c => {
         roleCounts[c.role] = (roleCounts[c.role] || 0) + 1;
       });
 
@@ -100,7 +130,15 @@ export const Analytics = () => {
         roleChartInstance.current.destroy();
       }
     };
-  }, [completedCandidates]);
+  }, [completedCandidates, candidates]);
+
+  if (loading) {
+    return <div className="text-center p-8">Đang tải dữ liệu...</div>;
+  }
+
+  if (error) {
+    return <div className="text-center p-8 text-red-500">Lỗi: {error}</div>;
+  }
 
   return (
     <div className="space-y-6">
@@ -122,7 +160,7 @@ export const Analytics = () => {
           </Card>
           <Card className="p-6 flex flex-col bg-card border border-border rounded-3xl shadow-lg">
             <h3 className="text-muted-foreground font-medium mb-2">Điểm trung bình</h3>
-            <p className="text-4xl font-bold text-foreground">{avgScore.toFixed(1)}</p>
+            <p className="text-4xl font-bold text-foreground">N/A</p>
           </Card>
           <Card className="p-6 flex flex-col bg-card border border-border rounded-3xl shadow-lg">
             <h3 className="text-muted-foreground font-medium mb-2">Ứng viên tiềm năng (A)</h3>

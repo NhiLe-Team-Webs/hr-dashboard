@@ -1,3 +1,4 @@
+// src/components/LandingPageEditor.tsx
 import React, { useState, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
@@ -13,7 +14,7 @@ import {
 } from 'lucide-react';
 import { useToast } from './ui/use-toast';
 import { LandingPage } from '../types/landingPage';
-import { getLandingPageData, updateLandingPageData } from '../lib/mockApi';
+import { getLandingPageData, updateLandingPageData } from '../lib/api';
 import LandingPagePreview from './LandingPagePreview';
 
 const LandingPageEditor: React.FC = () => {
@@ -45,11 +46,9 @@ const LandingPageEditor: React.FC = () => {
       }
     };
     fetchData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [toast]);
 
   const addToHistory = (newData: LandingPage) => {
-    // limit history length to 30 for safety
     const head = history.slice(0, historyIndex + 1);
     const newHistory = [...head, newData].slice(-30);
     const newIndex = newHistory.length - 1;

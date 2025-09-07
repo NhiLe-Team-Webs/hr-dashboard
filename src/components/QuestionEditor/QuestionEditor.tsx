@@ -1,106 +1,119 @@
 // src/components/QuestionEditor.tsx
-import { useState, useEffect, Dispatch, SetStateAction } from 'react';
+import { useState, useEffect } from 'react';
 import { Plus, Settings } from 'lucide-react';
-import { QuestionsByRole, Question } from '@/types/question';
+import { QuestionsByRole, Question, QuestionTypeInfo } from '@/types/question';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogTrigger, DialogContent } from '@/components/ui/dialog';
 import { toast } from '@/components/ui/use-toast';
+import { createQuestion, updateQuestion, getQuestionsByRole, getRoles } from '@/lib/api';
 
 // Import các components con
 import QuestionList from '@/components/QuestionEditor/QuestionList';
 import QuestionForm from '@/components/QuestionEditor/QuestionForm';
 import RoleManager from '@/components/QuestionEditor/RoleManager';
 
-// Initial data (giả định đây là dữ liệu từ API)
-const initialQuestions: QuestionsByRole = {
-  'Content Creator': [
-    {
-      id: '1',
-      text: 'Mô tả quy trình sáng tạo nội dung của bạn từ ý tưởng đến sản phẩm hoàn thiện',
-      type: 'Work Sample',
-      format: 'text',
-      required: true,
-      points: 10
-    },
-    {
-      id: '2',
-      text: 'Công cụ nào bạn thường sử dụng để tạo nội dung visual?',
-      type: 'Problem Solving',
-      format: 'multiple_choice',
-      required: true,
-      points: 5,
-      options: [
-        { id: 'a', text: 'Adobe Creative Suite' },
-        { id: 'b', text: 'Canva' },
-        { id: 'c', text: 'Figma' },
-        { id: 'd', text: 'Tất cả các công cụ trên' }
-      ],
-      correctAnswer: 'd'
-    }
-  ],
-  'Marketing Manager': [
-    {
-      id: '3',
-      text: 'Phân tích một chiến dịch marketing thành công mà bạn từng thực hiện',
-      type: 'Work Sample',
-      format: 'text',
-      required: true,
-      points: 15
-    }
-  ],
-  'Software Engineer': [
-    {
-      id: '4',
-      text: 'Giải thích khái niệm Big O notation và tại sao nó quan trọng',
-      type: 'Problem Solving',
-      format: 'text',
-      required: true,
-      points: 10
-    }
-  ]
-};
-
-const initialQuestionTypes = [
+const initialQuestionTypes: QuestionTypeInfo[] = [
   { value: 'Work Sample', label: 'Mẫu công việc', color: 'bg-blue-50 text-blue-700 border-blue-200' },
   { value: 'Problem Solving', label: 'Giải quyết vấn đề', color: 'bg-purple-50 text-purple-700 border-purple-200' },
   { value: 'Values & Reliability', label: 'Giá trị & Độ tin cậy', color: 'bg-green-50 text-green-700 border-green-200' }
 ];
 
 const QuestionEditor = () => {
-  const [questions, setQuestions] = useState<QuestionsByRole>(initialQuestions);
-  const [roles, setRoles] = useState(Object.keys(initialQuestions));
-  const [selectedRole, setSelectedRole] = useState(roles[0]);
+  const [questions, setQuestions] = useState<QuestionsByRole>({});
+  const [roles, setRoles] = useState<string[]>([]);
+  const [selectedRole, setSelectedRole] = useState('');
   const [isCreating, setIsCreating] = useState(false);
-  const [editingQuestion, setEditingQuestion] = useState(null);
+  const [editingQuestion, setEditingQuestion] = useState<Question | null>(null);
   const [showRoleManager, setShowRoleManager] = useState(false);
   const [targetRoleForCreate, setTargetRoleForCreate] = useState('');
 
+  // Tải danh sách vai trò khi component được mount
+  useEffect(() => {
+    const fetchRoles = async () => {
+      try {
+        const rolesData = await getRoles();
+        setRoles(rolesData);
+        if (rolesData.length > 0) {
+          setSelectedRole(rolesData[0]);
+        }
+      } catch (error) {
+        toast({
+          title: 'Lỗi',
+          description: 'Không thể tải danh sách vị trí.',
+          variant: 'destructive',
+        });
+      }
+    };
+    fetchRoles();
+  }, [toast]);
+
+  // Tải câu hỏi cho vai trò đã chọn
+  useEffect(() => {
+    if (selectedRole) {
+      const fetchQuestions = async () => {
+        try {
+          const data = await getQuestionsByRole(selectedRole);
+          setQuestions(prev => ({ ...prev, [selectedRole]: data }));
+        } catch (error) {
+          toast({
+            title: 'Lỗi',
+            description: 'Không thể tải câu hỏi.',
+            variant: 'destructive',
+          });
+        }
+      };
+      fetchQuestions();
+    }
+  }, [selectedRole, toast]);
+
   const currentQuestions = questions[selectedRole] || [];
 
-  const handleCreateQuestion = (data, role) => {
-    setQuestions(prev => ({
-      ...prev,
-      [role]: [...(prev[role] || []), data]
-    }));
-    setIsCreating(false);
-    setTargetRoleForCreate('');
-    toast({ title: 'Thành công', description: 'Đã tạo câu hỏi mới' });
+  const handleCreateQuestion = async (data: Omit<Question, 'id'>, role: string) => {
+    try {
+      const newQuestion = await createQuestion(data, role);
+      setQuestions(prev => ({
+        ...prev,
+        [role]: [...(prev[role] || []), newQuestion]
+      }));
+      setIsCreating(false);
+      setTargetRoleForCreate('');
+      toast({ title: 'Thành công', description: 'Đã tạo câu hỏi mới' });
+    } catch (error) {
+      toast({
+        title: 'Lỗi',
+        description: 'Không thể tạo câu hỏi.',
+        variant: 'destructive',
+      });
+    }
   };
 
-  const handleUpdateQuestion = (data) => {
-    setQuestions(prev => ({
-      ...prev,
-      [selectedRole]: prev[selectedRole].map(q => q.id === data.id ? data : q)
-    }));
-    setEditingQuestion(null);
-    toast({ title: 'Thành công', description: 'Đã cập nhật câu hỏi' });
+  const handleUpdateQuestion = async (data: Question) => {
+    try {
+      await updateQuestion(data);
+      setQuestions(prev => ({
+        ...prev,
+        [selectedRole]: prev[selectedRole].map(q => q.id === data.id ? data : q)
+      }));
+      setEditingQuestion(null);
+      toast({ title: 'Thành công', description: 'Đã cập nhật câu hỏi' });
+    } catch (error) {
+      toast({
+        title: 'Lỗi',
+        description: 'Không thể cập nhật câu hỏi.',
+        variant: 'destructive',
+      });
+    }
   };
 
   const handleStartCreate = () => {
     setTargetRoleForCreate(selectedRole);
     setIsCreating(true);
+  };
+  
+  const handleSetQuestions = (newQuestions: QuestionsByRole) => {
+    setQuestions(newQuestions);
   };
 
   return (
@@ -125,7 +138,7 @@ const QuestionEditor = () => {
                   roles={roles} 
                   questions={questions} 
                   setRoles={setRoles} 
-                  setQuestions={setQuestions} 
+                  setQuestions={handleSetQuestions} 
                   onClose={() => setShowRoleManager(false)} 
                 />
               </Dialog>
@@ -191,7 +204,7 @@ const QuestionEditor = () => {
             selectedRole={selectedRole}
             roles={roles}
             setEditingQuestion={setEditingQuestion}
-            setQuestions={setQuestions}
+            setQuestions={handleSetQuestions}
             setIsCreating={setIsCreating}
             initialQuestionTypes={initialQuestionTypes}
             handleStartCreate={handleStartCreate}
