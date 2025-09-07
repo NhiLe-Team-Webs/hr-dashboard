@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { Routes, Route, useNavigate } from 'react-router-dom';
 import Analytics from './Analytics';
 import CandidateList from './CandidateList';
-import QuestionEditor from './QuestionEditor';
+import QuestionEditor from './QuestionEditor/QuestionEditor';
 import LandingPageEditor from './LandingPageEditor';
 import NotFound from '../pages/NotFound';
 import { PageType } from '../pages/Index';

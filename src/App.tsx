@@ -8,7 +8,7 @@ import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import Analytics from "./components/Analytics";
 import CandidateList from "./components/CandidateList";
-import QuestionEditor from "./components/QuestionEditor";
+import QuestionEditor from "./components/QuestionEditor/QuestionEditor";
 import LandingPageEditor from "./components/LandingPageEditor";
 
 const queryClient = new QueryClient();
