@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Edit3, Trash2, FileText, Check, X, Move, Copy, Settings, Eye, ChevronDown, ChevronUp } from 'lucide-react';
+import { Plus, Edit3, Trash2, FileText, Check, X, Move, Copy, Settings, Eye, ChevronDown, ChevronUp, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -7,9 +7,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { toast } from '@/components/ui/use-toast'; // Giả sử bạn có toast component cho thông báo
 
-// Mock data
-const mockQuestions = {
+// Initial data
+const initialQuestions = {
   'Content Creator': [
     {
       id: '1',
@@ -57,35 +60,380 @@ const mockQuestions = {
   ]
 };
 
-const QuestionEditor = () => {
-  const [questions, setQuestions] = useState(mockQuestions);
-  const [selectedRole, setSelectedRole] = useState('Content Creator');
-  const [isCreating, setIsCreating] = useState(false);
-  const [editingId, setEditingId] = useState(null);
-  const [expandedQuestions, setExpandedQuestions] = useState(new Set());
-  
-  // Edit question state
-  const [editingQuestion, setEditingQuestion] = useState(null);
-  
-  // New question form state
-  const [newQuestion, setNewQuestion] = useState({
-    text: '',
-    type: 'Work Sample',
-    format: 'text',
-    required: true,
-    points: 5,
-    options: [{ id: 'a', text: '' }, { id: 'b', text: '' }],
-    correctAnswer: 'a'
+const initialQuestionTypes = [
+  { value: 'Work Sample', label: 'Mẫu công việc', color: 'bg-blue-50 text-blue-700 border-blue-200' },
+  { value: 'Problem Solving', label: 'Giải quyết vấn đề', color: 'bg-purple-50 text-purple-700 border-purple-200' },
+  { value: 'Values & Reliability', label: 'Giá trị & Độ tin cậy', color: 'bg-green-50 text-green-700 border-green-200' }
+];
+
+// Sub-component: Question Form (reusable for create/edit)
+const QuestionForm = ({ 
+  question = null, 
+  onSubmit, 
+  onCancel, 
+  questionTypes, 
+  setQuestionTypes,
+  isEdit = false,
+  currentQuestions = [] 
+}) => {
+  interface FormErrors {
+    text?: string;
+    duplicate?: string;
+    options?: string;
+    correctAnswer?: string;
+  }
+
+  const [formData, setFormData] = useState({
+    text: question?.text || '',
+    type: question?.type || questionTypes[0]?.value || 'Work Sample',
+    format: question?.format || 'text',
+    required: question?.required !== undefined ? question.required : true,
+    points: question?.points || 5,
+    options: question?.format === 'multiple_choice' ? [...(question.options || [])] : [{ id: 'a', text: '' }, { id: 'b', text: '' }],
+    correctAnswer: question?.correctAnswer || 'a'
   });
+  const [errors, setErrors] = useState<FormErrors>({});
 
-  const roles = Object.keys(questions);
+  const validateForm = () => {
+    const newErrors: FormErrors = {};
+    if (!formData.text.trim()) {
+      newErrors.text = 'Nội dung câu hỏi không được để trống';
+    }
+    if (currentQuestions.some(q => q.text.toLowerCase() === formData.text.toLowerCase())) {
+      newErrors.duplicate = 'Câu hỏi này đã tồn tại';
+    }
+    if (formData.format === 'multiple_choice') {
+      const hasOptions = formData.options.some(opt => opt.text.trim());
+      if (!hasOptions) {
+        newErrors.options = 'Ít nhất một phương án phải có nội dung';
+      }
+      if (!formData.correctAnswer || !formData.options.find(opt => opt.id === formData.correctAnswer)?.text.trim()) {
+        newErrors.correctAnswer = 'Phải chọn đáp án đúng hợp lệ';
+      }
+    }
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSubmit = () => {
+    if (validateForm()) {
+      const processedData = {
+        ...formData,
+        options: formData.format === 'multiple_choice' ? formData.options.filter(opt => opt.text.trim()) : undefined,
+        id: question?.id || Date.now().toString()
+      };
+      onSubmit(processedData);
+    }
+  };
+
+  const addOption = () => {
+    const nextId = String.fromCharCode(97 + formData.options.length);
+    setFormData(prev => ({ ...prev, options: [...prev.options, { id: nextId, text: '' }] }));
+  };
+
+  const removeOption = (optionId) => {
+    if (formData.options.length <= 2) return;
+    setFormData(prev => ({ ...prev, options: prev.options.filter(opt => opt.id !== optionId) }));
+    // If removing the correct answer, reset it
+    if (formData.correctAnswer === optionId) {
+      setFormData(prev => ({ ...prev, correctAnswer: formData.options[0]?.id || 'a' }));
+    }
+  };
+
+  const updateOption = (optionId, value) => {
+    setFormData(prev => ({
+      ...prev,
+      options: prev.options.map(opt => opt.id === optionId ? { ...opt, text: value } : opt)
+    }));
+  };
+
+  const setCorrectAnswer = (optionId) => {
+    setFormData(prev => ({ ...prev, correctAnswer: optionId }));
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Errors */}
+      {errors.text && <div className="text-red-600 text-sm flex items-center gap-1"><AlertCircle className="w-4 h-4" />{errors.text}</div>}
+      {errors.duplicate && <div className="text-red-600 text-sm flex items-center gap-1"><AlertCircle className="w-4 h-4" />{errors.duplicate}</div>}
+      {errors.options && <div className="text-red-600 text-sm flex items-center gap-1"><AlertCircle className="w-4 h-4" />{errors.options}</div>}
+      {errors.correctAnswer && <div className="text-red-600 text-sm flex items-center gap-1"><AlertCircle className="w-4 h-4" />{errors.correctAnswer}</div>}
+
+      {/* Question Text */}
+      <div>
+        <Label htmlFor="text">Nội dung câu hỏi *</Label>
+        <Textarea
+          id="text"
+          placeholder="Nhập nội dung câu hỏi..."
+          value={formData.text}
+          onChange={(e) => setFormData(prev => ({ ...prev, text: e.target.value }))}
+          className="min-h-[80px] resize-none"
+        />
+      </div>
+
+      {/* Settings Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div>
+          <Label>Loại câu hỏi</Label>
+          <Select value={formData.type} onValueChange={(value) => setFormData(prev => ({ ...prev, type: value }))}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {questionTypes.map((type) => (
+                <SelectItem key={type.value} value={type.value}>
+                  {type.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div>
+          <Label>Định dạng</Label>
+          <Select value={formData.format} onValueChange={(value) => {
+            setFormData(prev => ({ 
+              ...prev, 
+              format: value,
+              options: value === 'multiple_choice' ? prev.options : undefined 
+            }));
+          }}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="text">Tự luận</SelectItem>
+              <SelectItem value="multiple_choice">Trắc nghiệm</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div>
+          <Label>Điểm số</Label>
+          <Input
+            type="number"
+            min="1"
+            max="20"
+            value={formData.points}
+            onChange={(e) => setFormData(prev => ({ ...prev, points: parseInt(e.target.value) || 5 }))}
+          />
+        </div>
+      </div>
+
+      {/* Multiple Choice Options */}
+      {formData.format === 'multiple_choice' && (
+        <div className="space-y-3">
+          <Label>Các phương án trả lời</Label>
+          {formData.options.map((option, index) => (
+            <div key={option.id} className="flex items-center gap-3">
+              <input
+                type="radio"
+                checked={formData.correctAnswer === option.id}
+                onChange={() => setCorrectAnswer(option.id)}
+                className="text-blue-600"
+              />
+              <div className="flex-1">
+                <Input
+                  placeholder={`Phương án ${option.id.toUpperCase()}`}
+                  value={option.text}
+                  onChange={(e) => updateOption(option.id, e.target.value)}
+                />
+              </div>
+              {formData.options.length > 2 && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => removeOption(option.id)}
+                  className="text-red-500 hover:text-red-700"
+                >
+                  <X className="w-4 h-4" />
+                </Button>
+              )}
+            </div>
+          ))}
+          {formData.options.length < 6 && (
+            <Button type="button" variant="outline" size="sm" onClick={addOption}>
+              <Plus className="w-4 h-4 mr-2" />
+              Thêm phương án
+            </Button>
+          )}
+        </div>
+      )}
+
+      {/* Actions */}
+      <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
+        <Button variant="outline" onClick={onCancel}>
+          Hủy
+        </Button>
+        <Button
+          onClick={handleSubmit}
+          disabled={Object.keys(errors).length > 0 || !formData.text.trim()}
+          className="bg-blue-600 hover:bg-blue-700"
+        >
+          <Check className="w-4 h-4 mr-2" />
+          {isEdit ? 'Cập nhật' : 'Tạo'}
+        </Button>
+      </div>
+    </div>
+  );
+};
+
+// Sub-component: Role Manager Dialog
+const RoleManager = ({ roles, questions, setRoles, setQuestions, onClose }) => {
+  const [newRoleName, setNewRoleName] = useState('');
+
+  const addRole = () => {
+    if (!newRoleName.trim() || roles.includes(newRoleName.trim())) {
+      toast({ title: 'Lỗi', description: 'Tên vị trí không hợp lệ hoặc đã tồn tại' });
+      return;
+    }
+    setRoles([...roles, newRoleName.trim()]);
+    setQuestions(prev => ({ ...prev, [newRoleName.trim()]: [] }));
+    setNewRoleName('');
+    toast({ title: 'Thành công', description: `Đã thêm vị trí "${newRoleName.trim()}"` });
+  };
+
+  const deleteRole = (role) => {
+    if (confirm(`Xóa vị trí "${role}"? Tất cả câu hỏi sẽ bị xóa.`)) {
+      setRoles(roles.filter(r => r !== role));
+      const newQuestions = { ...questions };
+      delete newQuestions[role];
+      setQuestions(newQuestions);
+    }
+  };
+
+  return (
+    <DialogContent className="max-w-md">
+      <DialogHeader>
+        <DialogTitle>Quản lý Vị trí</DialogTitle>
+      </DialogHeader>
+      <div className="space-y-4">
+        {/* Add Role */}
+        <div className="space-y-2">
+          <Label>Thêm vị trí mới</Label>
+          <div className="flex gap-2">
+            <Input
+              placeholder="Nhập tên vị trí..."
+              value={newRoleName}
+              onChange={(e) => setNewRoleName(e.target.value)}
+            />
+            <Button onClick={addRole} disabled={!newRoleName.trim()}>Thêm</Button>
+          </div>
+        </div>
+
+        {/* List Roles */}
+        <div>
+          <Label>Danh sách vị trí</Label>
+          <div className="space-y-2 mt-2">
+            {roles.map(role => (
+              <div key={role} className="flex justify-between items-center p-2 bg-gray-50 rounded">
+                <span>{role} ({(questions[role] || []).length} câu hỏi)</span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => deleteRole(role)}
+                  className="text-red-500"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+      <Button onClick={onClose} className="mt-4">Đóng</Button>
+    </DialogContent>
+  );
+};
+
+// Sub-component: Type Manager Dialog
+const TypeManager = ({ questionTypes, setQuestionTypes, onClose }) => {
+  const [newType, setNewType] = useState({ value: '', label: '', color: 'bg-gray-50 text-gray-700 border-gray-200' });
+
+  const addType = () => {
+    if (!newType.value.trim() || !newType.label.trim() || questionTypes.some(t => t.value === newType.value.trim())) {
+      toast({ title: 'Lỗi', description: 'Loại câu hỏi không hợp lệ hoặc đã tồn tại' });
+      return;
+    }
+    setQuestionTypes([...questionTypes, { ...newType, value: newType.value.trim(), label: newType.label.trim() }]);
+    setNewType({ value: '', label: '', color: 'bg-gray-50 text-gray-700 border-gray-200' });
+    toast({ title: 'Thành công', description: `Đã thêm loại "${newType.label.trim()}"` });
+  };
+
+  const deleteType = (value) => {
+    if (confirm(`Xóa loại "${value}"?`)) {
+      setQuestionTypes(questionTypes.filter(t => t.value !== value));
+    }
+  };
+
+  return (
+    <DialogContent className="max-w-md">
+      <DialogHeader>
+        <DialogTitle>Quản lý Loại Câu Hỏi</DialogTitle>
+      </DialogHeader>
+      <div className="space-y-4">
+        {/* Add Type */}
+        <div className="space-y-2">
+          <Label>Thêm loại mới</Label>
+          <Input
+            placeholder="Tên loại (value)"
+            value={newType.value}
+            onChange={(e) => setNewType(prev => ({ ...prev, value: e.target.value }))}
+          />
+          <Input
+            placeholder="Nhãn hiển thị"
+            value={newType.label}
+            onChange={(e) => setNewType(prev => ({ ...prev, label: e.target.value }))}
+          />
+          <div className="flex gap-2">
+            <Input
+              placeholder="Màu (ví dụ: bg-red-50 text-red-700 border-red-200)"
+              value={newType.color}
+              onChange={(e) => setNewType(prev => ({ ...prev, color: e.target.value }))}
+            />
+            <Button onClick={addType} disabled={!newType.value.trim() || !newType.label.trim()}>Thêm</Button>
+          </div>
+        </div>
+
+        {/* List Types */}
+        <div>
+          <Label>Danh sách loại</Label>
+          <div className="space-y-2 mt-2">
+            {questionTypes.map(type => (
+              <div key={type.value} className="flex justify-between items-center p-2 bg-gray-50 rounded">
+                <span className={type.color}>{type.label}</span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => deleteType(type.value)}
+                  className="text-red-500"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+      <Button onClick={onClose} className="mt-4">Đóng</Button>
+    </DialogContent>
+  );
+};
+
+// Main Component
+const QuestionEditor = () => {
+  const [questions, setQuestions] = useState(initialQuestions);
+  const [roles, setRoles] = useState(Object.keys(initialQuestions));
+  const [questionTypes, setQuestionTypes] = useState(initialQuestionTypes);
+  const [selectedRole, setSelectedRole] = useState(roles[0]);
+  const [isCreating, setIsCreating] = useState(false);
+  const [editingQuestion, setEditingQuestion] = useState(null);
+  const [expandedQuestions, setExpandedQuestions] = useState(new Set());
+  const [showRoleManager, setShowRoleManager] = useState(false);
+  const [showTypeManager, setShowTypeManager] = useState(false);
+
   const currentQuestions = questions[selectedRole] || [];
-
-  const questionTypes = [
-    { value: 'Work Sample', label: 'Mẫu công việc', color: 'bg-blue-50 text-blue-700 border-blue-200' },
-    { value: 'Problem Solving', label: 'Giải quyết vấn đề', color: 'bg-purple-50 text-purple-700 border-purple-200' },
-    { value: 'Values & Reliability', label: 'Giá trị & Độ tin cậy', color: 'bg-green-50 text-green-700 border-green-200' }
-  ];
 
   const getQuestionTypeInfo = (type) => {
     return questionTypes.find(t => t.value === type) || questionTypes[0];
@@ -101,69 +449,31 @@ const QuestionEditor = () => {
     setExpandedQuestions(newExpanded);
   };
 
-  const handleCreateQuestion = () => {
-    if (!newQuestion.text.trim()) return;
-
-    const questionId = Date.now().toString();
-    const questionToAdd = {
-      ...newQuestion,
-      id: questionId,
-      options: newQuestion.format === 'multiple_choice' ? newQuestion.options.filter(opt => opt.text.trim()) : undefined
-    };
-
+  const handleCreateQuestion = (data) => {
     setQuestions(prev => ({
       ...prev,
-      [selectedRole]: [...(prev[selectedRole] || []), questionToAdd]
+      [selectedRole]: [...(prev[selectedRole] || []), data]
     }));
-
-    // Reset form
-    setNewQuestion({
-      text: '',
-      type: 'Work Sample',
-      format: 'text',
-      required: true,
-      points: 5,
-      options: [{ id: 'a', text: '' }, { id: 'b', text: '' }],
-      correctAnswer: 'a'
-    });
     setIsCreating(false);
+    toast({ title: 'Thành công', description: 'Đã tạo câu hỏi mới' });
   };
 
-  const handleAddOption = () => {
-    const nextId = String.fromCharCode(97 + newQuestion.options.length); // a, b, c, d...
-    setNewQuestion(prev => ({
+  const handleUpdateQuestion = (data) => {
+    setQuestions(prev => ({
       ...prev,
-      options: [...prev.options, { id: nextId, text: '' }]
+      [selectedRole]: prev[selectedRole].map(q => q.id === data.id ? data : q)
     }));
-  };
-
-  const handleRemoveOption = (optionId) => {
-    if (newQuestion.options.length <= 2) return;
-    setNewQuestion(prev => ({
-      ...prev,
-      options: prev.options.filter(opt => opt.id !== optionId)
-    }));
-  };
-
-  const handleOptionChange = (optionId, value) => {
-    setNewQuestion(prev => ({
-      ...prev,
-      options: prev.options.map(opt => 
-        opt.id === optionId ? { ...opt, text: value } : opt
-      )
-    }));
+    setEditingQuestion(null);
+    toast({ title: 'Thành công', description: 'Đã cập nhật câu hỏi' });
   };
 
   const duplicateQuestion = (question) => {
-    const duplicated = {
-      ...question,
-      id: Date.now().toString(),
-      text: `${question.text} (Bản sao)`
-    };
+    const duplicated = { ...question, id: Date.now().toString(), text: `${question.text} (Bản sao)` };
     setQuestions(prev => ({
       ...prev,
       [selectedRole]: [...(prev[selectedRole] || []), duplicated]
     }));
+    toast({ title: 'Thành công', description: 'Đã sao chép câu hỏi' });
   };
 
   const deleteQuestion = (questionId) => {
@@ -172,35 +482,12 @@ const QuestionEditor = () => {
         ...prev,
         [selectedRole]: prev[selectedRole].filter(q => q.id !== questionId)
       }));
+      toast({ title: 'Thành công', description: 'Đã xóa câu hỏi' });
     }
   };
 
-  const handleEditQuestion = (questionId) => {
-    const question = questions[selectedRole].find(q => q.id === questionId);
-    if (question) {
-      setEditingQuestion({
-        ...question,
-        options: question.format === 'multiple_choice' ? [...question.options] : [{ id: 'a', text: '' }, { id: 'b', text: '' }]
-      });
-      setEditingId(questionId);
-    }
-  };
-
-  const handleUpdateQuestion = () => {
-    if (!editingQuestion?.text.trim()) return;
-
-    setQuestions(prev => ({
-      ...prev,
-      [selectedRole]: prev[selectedRole].map(q => 
-        q.id === editingId ? {
-          ...editingQuestion,
-          options: editingQuestion.format === 'multiple_choice' ? editingQuestion.options.filter(opt => opt.text.trim()) : undefined
-        } : q
-      )
-    }));
-
-    setEditingQuestion(null);
-    setEditingId(null);
+  const handleEditQuestion = (question) => {
+    setEditingQuestion(question);
   };
 
   return (
@@ -213,13 +500,40 @@ const QuestionEditor = () => {
               <h1 className="text-2xl font-bold text-gray-900">Quản lý Câu hỏi Đánh giá</h1>
               <p className="text-gray-600 mt-1">Tạo và quản lý ngân hàng câu hỏi cho từng vị trí tuyển dụng</p>
             </div>
-            <Button 
-              onClick={() => setIsCreating(true)}
-              className="bg-blue-600 hover:bg-blue-700 shadow-sm"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Thêm câu hỏi mới
-            </Button>
+            <div className="flex gap-2">
+              <Dialog open={showRoleManager} onOpenChange={setShowRoleManager}>
+                <DialogTrigger asChild>
+                  <Button variant="outline">
+                    <Settings className="w-4 h-4 mr-2" />
+                    Quản lý vị trí
+                  </Button>
+                </DialogTrigger>
+                <RoleManager 
+                  roles={roles} 
+                  questions={questions} 
+                  setRoles={setRoles} 
+                  setQuestions={setQuestions} 
+                  onClose={() => setShowRoleManager(false)} 
+                />
+              </Dialog>
+              <Dialog open={showTypeManager} onOpenChange={setShowTypeManager}>
+                <DialogTrigger asChild>
+                  <Button variant="outline">
+                    <Settings className="w-4 h-4 mr-2" />
+                    Quản lý loại câu hỏi
+                  </Button>
+                </DialogTrigger>
+                <TypeManager 
+                  questionTypes={questionTypes} 
+                  setQuestionTypes={setQuestionTypes} 
+                  onClose={() => setShowTypeManager(false)} 
+                />
+              </Dialog>
+              <Button onClick={() => setIsCreating(true)} className="bg-blue-600 hover:bg-blue-700">
+                <Plus className="w-4 h-4 mr-2" />
+                Thêm câu hỏi mới
+              </Button>
+            </div>
           </div>
 
           {/* Stats */}
@@ -271,312 +585,40 @@ const QuestionEditor = () => {
 
             {roles.map((role) => (
               <TabsContent key={role} value={role} className="p-6 space-y-4 mt-0">
-                {/* Create New Question Form */}
-                {isCreating && (
-                  <Card className="p-6 border-2 border-blue-200 bg-blue-50/30">
-                    <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-lg font-semibold text-gray-900">Tạo câu hỏi mới</h3>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setIsCreating(false)}
-                        className="text-gray-500 hover:text-gray-700"
-                      >
-                        <X className="w-4 h-4" />
-                      </Button>
-                    </div>
+                {/* Create New Question Modal */}
+                <Dialog open={isCreating} onOpenChange={setIsCreating}>
+                  <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+                    <DialogHeader>
+                      <DialogTitle>Tạo câu hỏi mới</DialogTitle>
+                    </DialogHeader>
+                    <QuestionForm
+                      questionTypes={questionTypes}
+                      setQuestionTypes={setQuestionTypes}
+                      currentQuestions={currentQuestions}
+                      onSubmit={handleCreateQuestion}
+                      onCancel={() => setIsCreating(false)}
+                    />
+                  </DialogContent>
+                </Dialog>
 
-                    <div className="space-y-4">
-                      {/* Question Text */}
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Nội dung câu hỏi *
-                        </label>
-                        <Textarea
-                          placeholder="Nhập nội dung câu hỏi..."
-                          value={newQuestion.text}
-                          onChange={(e) => setNewQuestion(prev => ({ ...prev, text: e.target.value }))}
-                          className="min-h-[80px] resize-none"
-                        />
-                      </div>
-
-                      {/* Question Settings */}
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Loại câu hỏi</label>
-                          <Select value={newQuestion.type} onValueChange={(value) => setNewQuestion(prev => ({ ...prev, type: value }))}>
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {questionTypes.map((type) => (
-                                <SelectItem key={type.value} value={type.value}>
-                                  {type.label}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Định dạng</label>
-                          <Select value={newQuestion.format} onValueChange={(value) => setNewQuestion(prev => ({ ...prev, format: value }))}>
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="text">Tự luận</SelectItem>
-                              <SelectItem value="multiple_choice">Trắc nghiệm</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Điểm số</label>
-                          <Input
-                            type="number"
-                            min="1"
-                            max="20"
-                            value={newQuestion.points}
-                            onChange={(e) => setNewQuestion(prev => ({ ...prev, points: parseInt(e.target.value) || 5 }))}
-                          />
-                        </div>
-                      </div>
-
-                      {/* Multiple Choice Options */}
-                      {newQuestion.format === 'multiple_choice' && (
-                        <div className="space-y-3">
-                          <label className="block text-sm font-medium text-gray-700">Các phương án trả lời</label>
-                          {newQuestion.options.map((option, index) => (
-                            <div key={option.id} className="flex items-center gap-3">
-                              <input
-                                type="radio"
-                                name="correctAnswer"
-                                checked={newQuestion.correctAnswer === option.id}
-                                onChange={() => setNewQuestion(prev => ({ ...prev, correctAnswer: option.id }))}
-                                className="text-blue-600"
-                              />
-                              <div className="flex-1">
-                                <Input
-                                  placeholder={`Phương án ${option.id.toUpperCase()}`}
-                                  value={option.text}
-                                  onChange={(e) => handleOptionChange(option.id, e.target.value)}
-                                />
-                              </div>
-                              {newQuestion.options.length > 2 && (
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleRemoveOption(option.id)}
-                                  className="text-red-500 hover:text-red-700"
-                                >
-                                  <X className="w-4 h-4" />
-                                </Button>
-                              )}
-                            </div>
-                          ))}
-                          {newQuestion.options.length < 6 && (
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={handleAddOption}
-                              className="mt-2"
-                            >
-                              <Plus className="w-4 h-4 mr-2" />
-                              Thêm phương án
-                            </Button>
-                          )}
-                        </div>
-                      )}
-
-                      {/* Action Buttons */}
-                      <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
-                        <Button
-                          variant="outline"
-                          onClick={() => setIsCreating(false)}
-                        >
-                          Hủy
-                        </Button>
-                        <Button
-                          onClick={handleCreateQuestion}
-                          disabled={!newQuestion.text.trim()}
-                          className="bg-blue-600 hover:bg-blue-700"
-                        >
-                          <Check className="w-4 h-4 mr-2" />
-                          Tạo câu hỏi
-                        </Button>
-                      </div>
-                    </div>
-                  </Card>
-                )}
-
-                {/* Edit Question Form */}
-                {editingId && editingQuestion && (
-                  <Card className="p-6 border-2 border-yellow-200 bg-yellow-50/30">
-                    <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-lg font-semibold text-gray-900">Chỉnh sửa câu hỏi</h3>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setEditingId(null);
-                          setEditingQuestion(null);
-                        }}
-                        className="text-gray-500 hover:text-gray-700"
-                      >
-                        <X className="w-4 h-4" />
-                      </Button>
-                    </div>
-
-                    <div className="space-y-4">
-                      {/* Question Text */}
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Nội dung câu hỏi *
-                        </label>
-                        <Textarea
-                          placeholder="Nhập nội dung câu hỏi..."
-                          value={editingQuestion.text}
-                          onChange={(e) => setEditingQuestion(prev => ({ ...prev, text: e.target.value }))}
-                          className="min-h-[80px] resize-none"
-                        />
-                      </div>
-
-                      {/* Question Settings */}
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Loại câu hỏi</label>
-                          <Select 
-                            value={editingQuestion.type} 
-                            onValueChange={(value) => setEditingQuestion(prev => ({ ...prev, type: value }))}
-                          >
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {questionTypes.map((type) => (
-                                <SelectItem key={type.value} value={type.value}>
-                                  {type.label}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Định dạng</label>
-                          <Select 
-                            value={editingQuestion.format} 
-                            onValueChange={(value) => setEditingQuestion(prev => ({ ...prev, format: value }))}
-                          >
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="text">Tự luận</SelectItem>
-                              <SelectItem value="multiple_choice">Trắc nghiệm</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Điểm số</label>
-                          <Input
-                            type="number"
-                            min="1"
-                            max="20"
-                            value={editingQuestion.points}
-                            onChange={(e) => setEditingQuestion(prev => ({ ...prev, points: parseInt(e.target.value) || 5 }))}
-                          />
-                        </div>
-                      </div>
-
-                      {/* Multiple Choice Options */}
-                      {editingQuestion.format === 'multiple_choice' && (
-                        <div className="space-y-3">
-                          <label className="block text-sm font-medium text-gray-700">Các phương án trả lời</label>
-                          {editingQuestion.options.map((option, index) => (
-                            <div key={option.id} className="flex items-center gap-3">
-                              <input
-                                type="radio"
-                                name="editCorrectAnswer"
-                                checked={editingQuestion.correctAnswer === option.id}
-                                onChange={() => setEditingQuestion(prev => ({ ...prev, correctAnswer: option.id }))}
-                                className="text-blue-600"
-                              />
-                              <div className="flex-1">
-                                <Input
-                                  placeholder={`Phương án ${option.id.toUpperCase()}`}
-                                  value={option.text}
-                                  onChange={(e) => {
-                                    const newOptions = [...editingQuestion.options];
-                                    newOptions[index] = { ...option, text: e.target.value };
-                                    setEditingQuestion(prev => ({ ...prev, options: newOptions }));
-                                  }}
-                                />
-                              </div>
-                              {editingQuestion.options.length > 2 && (
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => {
-                                    if (editingQuestion.options.length <= 2) return;
-                                    const newOptions = editingQuestion.options.filter(opt => opt.id !== option.id);
-                                    setEditingQuestion(prev => ({ ...prev, options: newOptions }));
-                                  }}
-                                  className="text-red-500 hover:text-red-700"
-                                >
-                                  <X className="w-4 h-4" />
-                                </Button>
-                              )}
-                            </div>
-                          ))}
-                          {editingQuestion.options.length < 6 && (
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => {
-                                const nextId = String.fromCharCode(97 + editingQuestion.options.length);
-                                setEditingQuestion(prev => ({
-                                  ...prev,
-                                  options: [...prev.options, { id: nextId, text: '' }]
-                                }));
-                              }}
-                              className="mt-2"
-                            >
-                              <Plus className="w-4 h-4 mr-2" />
-                              Thêm phương án
-                            </Button>
-                          )}
-                        </div>
-                      )}
-
-                      {/* Action Buttons */}
-                      <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
-                        <Button
-                          variant="outline"
-                          onClick={() => {
-                            setEditingId(null);
-                            setEditingQuestion(null);
-                          }}
-                        >
-                          Hủy
-                        </Button>
-                        <Button
-                          onClick={handleUpdateQuestion}
-                          disabled={!editingQuestion.text.trim()}
-                          className="bg-blue-600 hover:bg-blue-700"
-                        >
-                          <Check className="w-4 h-4 mr-2" />
-                          Cập nhật
-                        </Button>
-                      </div>
-                    </div>
-                  </Card>
+                {/* Edit Question Modal */}
+                {editingQuestion && (
+                  <Dialog open={!!editingQuestion} onOpenChange={() => setEditingQuestion(null)}>
+                    <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+                      <DialogHeader>
+                        <DialogTitle>Chỉnh sửa câu hỏi</DialogTitle>
+                      </DialogHeader>
+                      <QuestionForm
+                        question={editingQuestion}
+                        questionTypes={questionTypes}
+                        setQuestionTypes={setQuestionTypes}
+                        currentQuestions={currentQuestions}
+                        isEdit={true}
+                        onSubmit={handleUpdateQuestion}
+                        onCancel={() => setEditingQuestion(null)}
+                      />
+                    </DialogContent>
+                  </Dialog>
                 )}
 
                 {/* Questions List */}
@@ -588,7 +630,7 @@ const QuestionEditor = () => {
                       
                       return (
                         <Card key={question.id} className="overflow-hidden hover:shadow-md transition-all duration-200">
-                          {/* Question Header */}
+                          {/* Header */}
                           <div className="p-4 bg-gray-50 border-b border-gray-100">
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-3">
@@ -614,6 +656,14 @@ const QuestionEditor = () => {
                                 <Button
                                   variant="ghost"
                                   size="sm"
+                                  onClick={() => toggleExpanded(question.id)}
+                                  className="text-gray-500 hover:text-blue-600"
+                                >
+                                  {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
                                   onClick={() => duplicateQuestion(question)}
                                   className="text-gray-500 hover:text-blue-600"
                                 >
@@ -622,7 +672,7 @@ const QuestionEditor = () => {
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  onClick={() => handleEditQuestion(question.id)}
+                                  onClick={() => handleEditQuestion(question)}
                                   className="text-gray-500 hover:text-blue-600"
                                 >
                                   <Edit3 className="w-4 h-4" />
@@ -639,13 +689,13 @@ const QuestionEditor = () => {
                             </div>
                           </div>
 
-                          {/* Question Content */}
+                          {/* Content */}
                           <div className="p-4">
                             <p className="text-gray-900 font-medium leading-relaxed mb-3">
                               {question.text}
                             </p>
 
-                            {/* Multiple Choice Options */}
+                            {/* Expanded Options */}
                             {isExpanded && question.format === 'multiple_choice' && question.options && (
                               <div className="mt-4 p-4 bg-gray-50 rounded-lg">
                                 <p className="text-sm font-medium text-gray-700 mb-3">Các phương án trả lời:</p>
@@ -691,10 +741,7 @@ const QuestionEditor = () => {
                     <p className="text-gray-600 mb-6 max-w-md mx-auto">
                       Bắt đầu tạo câu hỏi đánh giá cho vị trí <strong>{role}</strong> để xây dựng bộ đề thi chuyên nghiệp
                     </p>
-                    <Button 
-                      onClick={() => setIsCreating(true)}
-                      className="bg-blue-600 hover:bg-blue-700"
-                    >
+                    <Button onClick={() => setIsCreating(true)} className="bg-blue-600 hover:bg-blue-700">
                       <Plus className="w-4 h-4 mr-2" />
                       Tạo câu hỏi đầu tiên
                     </Button>

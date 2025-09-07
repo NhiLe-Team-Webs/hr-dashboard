@@ -29,6 +29,8 @@ export interface Question {
   text: string;
   options?: { id: string; text: string }[];
   correctAnswer?: string;
+  required: boolean;
+  points: number;
 }
 
 export const mockCandidates: Candidate[] = [
@@ -37,7 +39,7 @@ export const mockCandidates: Candidate[] = [
     userName: 'Anna Nguyễn',
     avatarChar: 'A',
     fullName: 'Nguyễn Thị Anna',
-    email: 'anna.nguyen@email.com',
+    email: 'vanductan.nlt@gmail.com',
     phone: '0901234567',
     telegram: '@annanguyen',
     gender: 'Nữ',
@@ -149,7 +151,9 @@ export const mockQuestions: Record<string, Question[]> = {
       id: 'cc1',
       type: 'Work Sample',
       format: 'text',
-      text: 'Viết 3 tiêu đề YouTube cho video có chủ đề: "Một ngày làm việc của CEO khởi nghiệp".'
+      text: 'Viết 3 tiêu đề YouTube cho video có chủ đề: "Một ngày làm việc của CEO khởi nghiệp".',
+      required: true,
+      points: 10
     },
     {
       id: 'cc6',
@@ -161,13 +165,17 @@ export const mockQuestions: Record<string, Question[]> = {
         { id: 'opt2', text: 'Nội dung video' },
         { id: 'opt3', text: 'Mô tả và Tags' }
       ],
-      correctAnswer: 'opt1'
+      correctAnswer: 'opt1',
+      required: true,
+      points: 5
     },
     {
       id: 'cc9',
       type: 'Values & Reliability',
       format: 'text',
-      text: 'Khi deadline gấp, bạn không chắc nội dung đã tối ưu. Bạn chọn: (A) Xuất bản đúng giờ dù chưa hoàn hảo, hay (B) Hoãn lại để chỉnh kỹ? Giải thích.'
+      text: 'Khi deadline gấp, bạn không chắc nội dung đã tối ưu. Bạn chọn: (A) Xuất bản đúng giờ dù chưa hoàn hảo, hay (B) Hoãn lại để chỉnh kỹ? Giải thích.',
+      required: true,
+      points: 8
     },
   ],
   'Customer Support': [
@@ -175,13 +183,17 @@ export const mockQuestions: Record<string, Question[]> = {
       id: 'cs1',
       type: 'Work Sample',
       format: 'text',
-      text: 'Một khách hàng tức giận vì giao hàng trễ, bạn sẽ trả lời email như thế nào?'
+      text: 'Một khách hàng tức giận vì giao hàng trễ, bạn sẽ trả lời email như thế nào?',
+      required: true,
+      points: 10
     },
     {
       id: 'cs6',
       type: 'Problem Solving',
       format: 'text',
-      text: 'Một khách hàng báo lỗi: "App của tôi không mở được". Bạn cần hỏi thêm 3 câu gì để làm rõ vấn đề?'
+      text: 'Một khách hàng báo lỗi: "App của tôi không mở được". Bạn cần hỏi thêm 3 câu gì để làm rõ vấn đề?',
+      required: true,
+      points: 7
     },
   ],
   'Operations / Admin': [
@@ -195,13 +207,17 @@ export const mockQuestions: Record<string, Question[]> = {
         { id: 'opt2', text: 'C -> A -> B' },
         { id: 'opt3', text: 'B -> A -> C' }
       ],
-      correctAnswer: 'opt2'
+      correctAnswer: 'opt2',
+      required: true,
+      points: 6
     },
     {
       id: 'oa6',
       type: 'Problem Solving',
       format: 'text',
-      text: 'Trong báo cáo chi phí, bạn thấy một khoản lặp lại 2 lần. Bạn sẽ xử lý và báo cáo thế nào?'
+      text: 'Trong báo cáo chi phí, bạn thấy một khoản lặp lại 2 lần. Bạn sẽ xử lý và báo cáo thế nào?',
+      required: true,
+      points: 8
     },
   ]
 };
