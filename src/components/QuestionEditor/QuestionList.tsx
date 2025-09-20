@@ -1,11 +1,10 @@
-﻿// src/components/QuestionEditor/QuestionList.tsx
+// src/components/QuestionEditor/QuestionList.tsx
 import { useState, Dispatch, SetStateAction, useCallback } from 'react';
-import { Plus, Edit3, Trash2, FileText, ChevronDown, ChevronUp, Copy } from 'lucide-react';
+import { Plus, Edit3, Trash2, FileText, ChevronDown, ChevronUp, Copy, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { toast } from '@/components/ui/use-toast';
-import { QuestionsByRole, Question, QuestionTypeInfo } from '@/types/question';
+import { QuestionsByRole, Question } from '@/types/question';
 import { deleteQuestion as apiDeleteQuestion } from '@/lib/api';
 
 const isMultipleChoiceFormat = (format: Question['format']) => format === 'multiple_choice' || format === 'multiple-choice';
@@ -18,8 +17,8 @@ interface QuestionListProps {
   setEditingQuestion: (question: Question) => void;
   setQuestions: Dispatch<SetStateAction<QuestionsByRole>>;
   setIsCreating: (isCreating: boolean) => void;
-  initialQuestionTypes: QuestionTypeInfo[];
   handleStartCreate: () => void;
+  isLoading: boolean;
 }
 
 const QuestionList: React.FC<QuestionListProps> = ({ 
@@ -27,16 +26,13 @@ const QuestionList: React.FC<QuestionListProps> = ({
   selectedRole,
   setEditingQuestion,
   setQuestions,
-  initialQuestionTypes,
   handleStartCreate,
-  roles
+  roles,
+  isLoading,
 }) => {
   const [expandedQuestions, setExpandedQuestions] = useState(new Set<string>());
+  const [deletingQuestionId, setDeletingQuestionId] = useState<string | null>(null);
   
-  const getQuestionTypeInfo = useCallback((type: string) => {
-    return initialQuestionTypes.find(t => t.value === type) || initialQuestionTypes[0];
-  }, [initialQuestionTypes]);
-
   const toggleExpanded = useCallback((questionId: string) => {
     setExpandedQuestions(prev => {
       const newExpanded = new Set(prev);
@@ -63,6 +59,7 @@ const QuestionList: React.FC<QuestionListProps> = ({
 
   const handleDeleteQuestion = useCallback(async (questionId: string) => {
     if (confirm('Bạn có chắc chắn muốn xóa câu hỏi này?')) {
+      setDeletingQuestionId(questionId);
       try {
         await apiDeleteQuestion(questionId);
         setQuestions(prev => {
@@ -79,16 +76,46 @@ const QuestionList: React.FC<QuestionListProps> = ({
           description: 'Không thể xóa câu hỏi.',
           variant: 'destructive',
         });
+      } finally {
+        setDeletingQuestionId(null);
       }
     }
   }, [selectedRole, setQuestions, toast]);
+
+  if (isLoading) {
+    return (
+      <div className="p-6 space-y-4">
+        {Array.from({ length: 3 }).map((_, index) => (
+          <Card key={index} className="overflow-hidden">
+            <div className="p-4 bg-gray-50 border-b border-gray-100">
+              <div className="flex items-center justify-between animate-pulse">
+                <div className="flex items-center gap-3">
+                  <div className="h-4 w-10 rounded bg-gray-200" />
+                  <div className="h-4 w-24 rounded bg-gray-200" />
+                  <div className="h-4 w-20 rounded bg-gray-200" />
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="h-8 w-8 rounded bg-gray-200" />
+                  <div className="h-8 w-8 rounded bg-gray-200" />
+                  <div className="h-8 w-8 rounded bg-gray-200" />
+                </div>
+              </div>
+            </div>
+            <div className="p-4">
+              <div className="h-4 w-3/4 rounded bg-gray-200 animate-pulse mb-3" />
+              <div className="h-4 w-1/2 rounded bg-gray-100 animate-pulse" />
+            </div>
+          </Card>
+        ))}
+      </div>
+    );
+  }
 
   return (
     <>
       {questions.length > 0 ? (
         <div className="p-6 space-y-4">
           {questions.map((question, index) => {
-            const typeInfo = getQuestionTypeInfo(question.type);
             const isExpanded = expandedQuestions.has(question.id);
             
             return (
@@ -97,9 +124,6 @@ const QuestionList: React.FC<QuestionListProps> = ({
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <span className="text-sm font-medium text-gray-500">#{index + 1}</span>
-                      <Badge className={`${typeInfo.color} font-medium`}>
-                        {typeInfo.label}
-                      </Badge>
                       <div className="flex items-center gap-1 text-sm text-gray-500">
                         {question.format === 'text' ? (
                           <FileText className="w-4 h-4" />
@@ -112,14 +136,16 @@ const QuestionList: React.FC<QuestionListProps> = ({
                       </div>
                     </div>
                     <div className="flex items-center gap-1">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => toggleExpanded(question.id)}
-                        className="text-gray-500 hover:text-blue-600"
-                      >
-                        {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                      </Button>
+                      {isMultipleChoiceFormat(question.format) && question.options?.length ? (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => toggleExpanded(question.id)}
+                          className="text-gray-500 hover:text-blue-600"
+                        >
+                          {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                        </Button>
+                      ) : null}
                       <Button
                         variant="ghost"
                         size="sm"
@@ -141,8 +167,13 @@ const QuestionList: React.FC<QuestionListProps> = ({
                         size="sm"
                         onClick={() => handleDeleteQuestion(question.id)}
                         className="text-gray-500 hover:text-red-600"
+                        disabled={deletingQuestionId === question.id}
                       >
-                        <Trash2 className="w-4 h-4" />
+                        {deletingQuestionId === question.id ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Trash2 className="w-4 h-4" />
+                        )}
                       </Button>
                     </div>
                   </div>
@@ -156,35 +187,15 @@ const QuestionList: React.FC<QuestionListProps> = ({
                     <div className="mt-4 p-4 bg-gray-50 rounded-lg">
                       <p className="text-sm font-medium text-gray-700 mb-3">Các phương án trả lời:</p>
                       <div className="space-y-2">
-                        {question.options.map((option) => {
-                          const isCorrectAnswer = option.id === question.correctAnswer || option.isCorrect;
-                          return (
-                            <div
-                              key={option.id}
-                              className={`flex items-center gap-3 p-3 rounded-lg border ${
-                                isCorrectAnswer
-                                  ? 'bg-green-50 border-green-200 text-green-800'
-                                  : 'bg-white border-gray-200 text-gray-700'
-                              }`}
-                            >
-                              <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
-                                isCorrectAnswer
-                                  ? 'border-green-500 bg-green-500'
-                                  : 'border-gray-300'
-                              }`}>
-                                {isCorrectAnswer && (
-                                  <div className="w-2 h-2 bg-white rounded-full"></div>
-                                )}
-                              </div>
-                              <span className="flex-1 font-medium">{option.text}</span>
-                              {isCorrectAnswer && (
-                                <Badge className="bg-green-100 text-green-800 text-xs border-green-200">
-                                  Đáp án đúng
-                                </Badge>
-                              )}
-                            </div>
-                          );
-                        })}
+                        {question.options.map((option) => (
+                          <div
+                            key={option.id}
+                            className="flex items-start gap-3 p-3 rounded-lg border border-gray-200 bg-white text-gray-700"
+                          >
+                            <div className="w-2 h-2 mt-2 rounded-full bg-gray-300"></div>
+                            <span className="flex-1 text-sm leading-relaxed">{option.text}</span>
+                          </div>
+                        ))}
                       </div>
                     </div>
                   )}

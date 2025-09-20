@@ -19,7 +19,7 @@ interface SupabaseQuestionOptionData {
 interface SupabaseQuestionData {
   id: string;
   text: string;
-  type: string;
+  type?: string;
   format: string;
   required: boolean;
   assessment_id: string | null;
@@ -53,7 +53,7 @@ interface ApiResponseEnvelope<T> {
   pagination?: PaginatedResponse<unknown>['pagination'];
 }
 
-const MULTIPLE_CHOICE_FORMATS = new Set(['multiple_choice', 'multiple-choice']);
+const MULTIPLE_CHOICE_FORMATS = new Set(['multiple_choice']);
 
 export type QuestionDraft = Omit<Question, 'id' | 'assessmentId' | 'createdAt'>;
 
@@ -64,7 +64,7 @@ const normaliseQuestionFormat = (format?: string | null): Question['format'] => 
   }
 
   if (format === 'multiple_choice' || format === 'multiple-choice') {
-    return 'multiple-choice';
+    return 'multiple_choice';
   }
 
   return format as Question['format'];
@@ -83,7 +83,7 @@ const extractCorrectAnswer = (options?: (SupabaseQuestionOptionData | ApiQuestio
 const mapSupabaseQuestion = (question: SupabaseQuestionData): Question => ({
   id: question.id,
   text: question.text,
-  type: question.type,
+  type: question.type ?? 'General',
   format: normaliseQuestionFormat(question.format),
   required: question.required,
   assessmentId: question.assessment_id,
@@ -99,7 +99,7 @@ const mapSupabaseQuestion = (question: SupabaseQuestionData): Question => ({
 const mapApiQuestion = (question: ApiQuestion): Question => ({
   id: question.id,
   text: question.text,
-  type: question.type,
+  type: question.type ?? 'General',
   format: normaliseQuestionFormat(question.format),
   required: question.required,
   assessmentId: question.assessment_id,
@@ -256,7 +256,6 @@ export const getQuestionsByRole = async (role: string): Promise<Question[]> => {
     .select(`
       id,
       text,
-      type,
       format,
       required,
       assessment_id,
@@ -295,12 +294,11 @@ export const createQuestion = async (questionData: QuestionDraft, targetRole: st
     .from('questions')
     .insert([{
       text: questionData.text,
-      type: questionData.type,
       format: questionData.format,
       required: questionData.required,
       assessment_id: assessment.id,
     }])
-    .select('id, text, type, format, required, assessment_id, created_at')
+    .select('id, text, format, required, assessment_id, created_at')
     .single();
 
   if (questionError) {
@@ -328,7 +326,7 @@ export const createQuestion = async (questionData: QuestionDraft, targetRole: st
   return {
     id: newQuestion.id,
     text: newQuestion.text,
-    type: newQuestion.type,
+    type: questionData.type ?? 'General',
     format: normaliseQuestionFormat(newQuestion.format),
     required: newQuestion.required,
     assessmentId: newQuestion.assessment_id,
@@ -353,7 +351,6 @@ export const updateQuestion = async (questionData: Partial<Question>): Promise<v
     .from('questions')
     .update({
       text: questionData.text,
-      type: questionData.type,
       format: questionData.format,
       required: questionData.required,
     })
@@ -382,7 +379,7 @@ export const updateQuestion = async (questionData: Partial<Question>): Promise<v
       }));
 
     if (optionsToInsert.length === 0) {
-      console.error('No valid options provided for multiple-choice question');
+      console.error('No valid options provided for multiple_choice question');
       throw new Error('Không thể cập nhật câu hỏi: Cần ít nhất một phương án trả lời.');
     }
 
@@ -570,18 +567,22 @@ export const getAnalyticsData = async () => {
     throw new Error('Không thể tải dữ liệu phân tích.');
   }
 
-  const formattedData = (data as SupabaseAnalyticsData[])
-    .filter(item => item.user)
-    .map(item => ({
-      id: item.user!.id,
-      name: item.user!.name ?? 'Unknown',
-      role: item.assessment?.target_role ?? 'Unknown',
-      band: item.user!.band,
-      scores: {
-        overall: item.total_score,
-      },
-      status: 'completed' as const,
-    }));
+  const formattedData = (data as SupabaseAnalyticsRow[])
+    .filter(row => row.user && row.user.length > 0)
+    .map(row => {
+      const user = row.user![0];
+      const assessment = row.assessment?.[0];
+      return {
+        id: user.id,
+        name: user.name ?? 'Unknown',
+        role: assessment?.target_role ?? 'Unknown',
+        band: user.band,
+        scores: {
+          overall: row.total_score,
+        },
+        status: 'completed' as const,
+      };
+    });
 
   return formattedData;
 };
@@ -660,5 +661,3 @@ export const getCandidates = async () => {
 
   return formattedData;
 };
-
-
