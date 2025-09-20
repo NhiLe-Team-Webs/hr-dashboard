@@ -69,11 +69,15 @@ export const CandidateList = () => {
     fetchCandidates();
   }, []);
 
-  const filteredCandidates = candidates.filter(candidate =>
-    candidate.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    candidate.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    candidate.role.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredCandidates = candidates.filter(candidate => {
+  const fullName = candidate.fullName ?? '';
+  const email = candidate.email ?? '';
+  const role = candidate.role ?? '';
+  
+  return fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+         email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+         role.toLowerCase().includes(searchTerm.toLowerCase());
+});
 
   const selectedCandidate = candidates.find(c => c.id === selectedCandidateId) || null;
 

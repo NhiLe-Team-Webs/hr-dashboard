@@ -1,4 +1,4 @@
-// src/components/QuestionEditor/QuestionList.tsx
+﻿// src/components/QuestionEditor/QuestionList.tsx
 import { useState, Dispatch, SetStateAction, useCallback } from 'react';
 import { Plus, Edit3, Trash2, FileText, ChevronDown, ChevronUp, Copy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -8,11 +8,13 @@ import { toast } from '@/components/ui/use-toast';
 import { QuestionsByRole, Question, QuestionTypeInfo } from '@/types/question';
 import { deleteQuestion as apiDeleteQuestion } from '@/lib/api';
 
+const isMultipleChoiceFormat = (format: Question['format']) => format === 'multiple_choice' || format === 'multiple-choice';
+
 // Định nghĩa types cho component
 interface QuestionListProps {
   questions: Question[];
   selectedRole: string;
-  roles: string[]; // Thêm prop roles
+  roles: string[];
   setEditingQuestion: (question: Question) => void;
   setQuestions: Dispatch<SetStateAction<QuestionsByRole>>;
   setIsCreating: (isCreating: boolean) => void;
@@ -27,7 +29,7 @@ const QuestionList: React.FC<QuestionListProps> = ({
   setQuestions,
   initialQuestionTypes,
   handleStartCreate,
-  roles // Thêm roles vào destructuring
+  roles
 }) => {
   const [expandedQuestions, setExpandedQuestions] = useState(new Set<string>());
   
@@ -150,36 +152,39 @@ const QuestionList: React.FC<QuestionListProps> = ({
                   <p className="text-gray-900 font-medium leading-relaxed mb-3">
                     {question.text}
                   </p>
-                  {isExpanded && question.format === 'multiple_choice' && question.options && (
+                  {isExpanded && isMultipleChoiceFormat(question.format) && question.options && (
                     <div className="mt-4 p-4 bg-gray-50 rounded-lg">
                       <p className="text-sm font-medium text-gray-700 mb-3">Các phương án trả lời:</p>
                       <div className="space-y-2">
-                        {question.options.map((option) => (
-                          <div
-                            key={option.id}
-                            className={`flex items-center gap-3 p-3 rounded-lg border ${
-                              option.id === question.correctAnswer 
-                                ? 'bg-green-50 border-green-200 text-green-800' 
-                                : 'bg-white border-gray-200 text-gray-700'
-                            }`}
-                          >
-                            <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
-                              option.id === question.correctAnswer 
-                                ? 'border-green-500 bg-green-500' 
-                                : 'border-gray-300'
-                            }`}>
-                              {option.id === question.correctAnswer && (
-                                <div className="w-2 h-2 bg-white rounded-full"></div>
+                        {question.options.map((option) => {
+                          const isCorrectAnswer = option.id === question.correctAnswer || option.isCorrect;
+                          return (
+                            <div
+                              key={option.id}
+                              className={`flex items-center gap-3 p-3 rounded-lg border ${
+                                isCorrectAnswer
+                                  ? 'bg-green-50 border-green-200 text-green-800'
+                                  : 'bg-white border-gray-200 text-gray-700'
+                              }`}
+                            >
+                              <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                                isCorrectAnswer
+                                  ? 'border-green-500 bg-green-500'
+                                  : 'border-gray-300'
+                              }`}>
+                                {isCorrectAnswer && (
+                                  <div className="w-2 h-2 bg-white rounded-full"></div>
+                                )}
+                              </div>
+                              <span className="flex-1 font-medium">{option.text}</span>
+                              {isCorrectAnswer && (
+                                <Badge className="bg-green-100 text-green-800 text-xs border-green-200">
+                                  Đáp án đúng
+                                </Badge>
                               )}
                             </div>
-                            <span className="flex-1 font-medium">{option.text}</span>
-                            {option.id === question.correctAnswer && (
-                              <Badge className="bg-green-100 text-green-800 text-xs border-green-200">
-                                Đáp án đúng
-                              </Badge>
-                            )}
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     </div>
                   )}

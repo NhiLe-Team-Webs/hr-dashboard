@@ -1,4 +1,4 @@
-// src/components/QuestionEditor.tsx
+﻿// src/components/QuestionEditor.tsx
 import { useState, useEffect } from 'react';
 import { Plus, Settings } from 'lucide-react';
 import { QuestionsByRole, Question, QuestionTypeInfo } from '@/types/question';
@@ -8,11 +8,15 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogTrigger, DialogContent } from '@/components/ui/dialog';
 import { toast } from '@/components/ui/use-toast';
 import { createQuestion, updateQuestion, getQuestionsByRole, getRoles } from '@/lib/api';
+import type { QuestionDraft } from '@/lib/api';
 
 // Import các components con
 import QuestionList from '@/components/QuestionEditor/QuestionList';
 import QuestionForm from '@/components/QuestionEditor/QuestionForm';
 import RoleManager from '@/components/QuestionEditor/RoleManager';
+
+const isMultipleChoiceFormat = (format: Question['format']) => format === 'multiple_choice' || format === 'multiple-choice';
+const isTextFormat = (format: Question['format']) => format === 'text';
 
 const initialQuestionTypes: QuestionTypeInfo[] = [
   { value: 'Work Sample', label: 'Mẫu công việc', color: 'bg-blue-50 text-blue-700 border-blue-200' },
@@ -70,41 +74,23 @@ const QuestionEditor = () => {
 
   const currentQuestions = questions[selectedRole] || [];
 
-  const handleCreateQuestion = async (data: Omit<Question, 'id'>, role: string) => {
-    try {
-      const newQuestion = await createQuestion(data, role);
-      setQuestions(prev => ({
-        ...prev,
-        [role]: [...(prev[role] || []), newQuestion]
-      }));
-      setIsCreating(false);
-      setTargetRoleForCreate('');
-      toast({ title: 'Thành công', description: 'Đã tạo câu hỏi mới' });
-    } catch (error) {
-      toast({
-        title: 'Lỗi',
-        description: 'Không thể tạo câu hỏi.',
-        variant: 'destructive',
-      });
-    }
+  const handleCreateQuestion = (newQuestion: Question, role: string) => {
+    setQuestions((prev) => ({
+      ...prev,
+      [role]: [...(prev[role] || []), newQuestion],
+    }));
+    setIsCreating(false);
+    setTargetRoleForCreate('');
+    toast({ title: 'Thành công', description: 'Đã thêm câu hỏi mới' });
   };
 
-  const handleUpdateQuestion = async (data: Question) => {
-    try {
-      await updateQuestion(data);
-      setQuestions(prev => ({
-        ...prev,
-        [selectedRole]: prev[selectedRole].map(q => q.id === data.id ? data : q)
-      }));
-      setEditingQuestion(null);
-      toast({ title: 'Thành công', description: 'Đã cập nhật câu hỏi' });
-    } catch (error) {
-      toast({
-        title: 'Lỗi',
-        description: 'Không thể cập nhật câu hỏi.',
-        variant: 'destructive',
-      });
-    }
+  const handleUpdateQuestion = (data: Question) => {
+    setQuestions((prev) => ({
+      ...prev,
+      [selectedRole]: prev[selectedRole].map((q) => (q.id === data.id ? data : q)),
+    }));
+    setEditingQuestion(null);
+    toast({ title: 'Thành công', description: 'Đã cập nhật câu hỏi' });
   };
 
   const handleStartCreate = () => {
@@ -159,13 +145,13 @@ const QuestionEditor = () => {
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-purple-600">
-                {Object.values(questions).flat().filter(q => q.format === 'text').length}
+                {Object.values(questions).flat().filter(q => isTextFormat(q.format)).length}
               </div>
               <div className="text-sm text-gray-600">Tự luận</div>
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-green-600">
-                {Object.values(questions).flat().filter(q => q.format === 'multiple_choice').length}
+                {Object.values(questions).flat().filter(q => isMultipleChoiceFormat(q.format)).length}
               </div>
               <div className="text-sm text-gray-600">Trắc nghiệm</div>
             </div>
