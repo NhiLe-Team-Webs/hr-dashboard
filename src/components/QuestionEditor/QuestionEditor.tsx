@@ -1,7 +1,7 @@
 ﻿// src/components/QuestionEditor.tsx
 import { useState, useEffect } from 'react';
 import { Plus, Settings, Loader2 } from 'lucide-react';
-import { QuestionsByRole, Question } from '@/types/question';
+import { QuestionsByRole, Question, RoleSummary } from '@/types/question';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
@@ -20,7 +20,7 @@ const isTextFormat = (format: Question['format']) => format === 'text';
 const QuestionEditor = () => {
 
   const [questions, setQuestions] = useState<QuestionsByRole>({});
-  const [roles, setRoles] = useState<string[]>([]);
+  const [roles, setRoles] = useState<RoleSummary[]>([]);
   const [selectedRole, setSelectedRole] = useState('');
   const [isCreating, setIsCreating] = useState(false);
   const [editingQuestion, setEditingQuestion] = useState<Question | null>(null);
@@ -42,10 +42,10 @@ const QuestionEditor = () => {
         }
         setRoles(rolesData);
         setSelectedRole((prev) => {
-          if (prev && rolesData.includes(prev)) {
+          if (prev && rolesData.some((role) => role.name === prev)) {
             return prev;
           }
-          return rolesData[0] ?? '';
+          return rolesData[0]?.name ?? '';
         });
       } catch (error) {
         if (isMounted) {
@@ -109,6 +109,20 @@ const QuestionEditor = () => {
   }, [selectedRole, toast]);
 
   const currentQuestions = questions[selectedRole] || [];
+  const roleNames = roles.map((role) => role.name);
+
+useEffect(() => {
+    if (roles.length === 0) {
+      if (selectedRole) {
+        setSelectedRole('');
+      }
+      return;
+    }
+
+    if (!selectedRole || !roles.some((role) => role.name === selectedRole)) {
+      setSelectedRole(roles[0]?.name ?? '');
+    }
+  }, [roles, selectedRole]);
 
   const handleCreateQuestion = (newQuestion: Question, role: string) => {
     setQuestions((prev) => ({
@@ -218,11 +232,15 @@ const QuestionEditor = () => {
                       <SelectValue placeholder={isLoadingRoles ? 'Đang tải vai trò...' : 'Chọn vai trò...'} />
                     </SelectTrigger>
                     <SelectContent>
-                      {roles.map((role) => (
-                        <SelectItem key={role} value={role}>
-                          {role} ({(questions[role] || []).length} câu hỏi)
-                        </SelectItem>
-                      ))}
+                      {roles.map((role) => {
+                        const questionCount = (questions[role.name] || []).length;
+                        const minutes = role.duration ? Math.max(1, Math.round(role.duration / 60)) : 30;
+                        return (
+                          <SelectItem key={role.name} value={role.name}>
+                            {role.name} ({questionCount} câu hỏi · {minutes} phút)
+                          </SelectItem>
+                        );
+                      })}
                     </SelectContent>
                   </Select>
                   {isLoadingRoles && <Loader2 className="h-4 w-4 animate-spin text-gray-500" />}
@@ -235,7 +253,7 @@ const QuestionEditor = () => {
           <QuestionList
             questions={currentQuestions}
             selectedRole={selectedRole}
-            roles={roles}
+            roles={roleNames}
             setEditingQuestion={setEditingQuestion}
             setQuestions={handleSetQuestions}
             setIsCreating={setIsCreating}
@@ -249,7 +267,7 @@ const QuestionEditor = () => {
               <QuestionForm
                 currentQuestions={questions[targetRoleForCreate] || []}
                 targetRole={targetRoleForCreate}
-                roles={roles}
+                roles={roleNames}
                 setTargetRole={setTargetRoleForCreate}
                 onSubmit={handleCreateQuestion}
                 onCancel={() => {

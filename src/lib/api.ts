@@ -1,15 +1,15 @@
-﻿// src/lib/api.ts
+// src/lib/api.ts
 
 import { supabase } from './supabaseClient';
 import { apiClient, PaginatedResponse } from './httpClient';
-import { Question, QuestionsByRole, QuestionOption } from '../types/question';
+import { Question, QuestionsByRole, QuestionOption, RoleSummary } from '../types/question';
 import { LandingPage } from '../types/landingPage';
 
 // ===========================================
-// === INTERFACES ĐỂ ĐẢM BẢO AN TOÀN KIỂU ===
+// === INTERFACES �? �?M B?O AN TO�N KI?U ===
 // ===========================================
 
-// Interfaces cho hàm getQuestionsByRole
+// Interfaces cho h�m getQuestionsByRole
 interface SupabaseQuestionOptionData {
   id: string;
   option_text: string;
@@ -110,16 +110,94 @@ const mapApiQuestion = (question: ApiQuestion): Question => ({
   correctAnswer: extractCorrectAnswer(question.options),
 });
 
-interface CandidateData {
+export type CandidateAttemptStatus = 'not_started' | 'in_progress' | 'awaiting_ai' | 'completed';
+
+export interface CandidateAttemptSummary {
   id: string;
-  name: string;
-  email: string;
-  role: string;
-  band: string;
-  results: { total_score: number | null }[];
+  status: CandidateAttemptStatus;
+  answeredCount: number;
+  totalQuestions: number;
+  progressPercent: number;
+  startedAt?: string | null;
+  submittedAt?: string | null;
+  completedAt?: string | null;
+  lastActivityAt?: string | null;
 }
 
-// Interfaces cho hàm updateCandidateInfo
+export interface CandidateSummary {
+  id: string;
+  fullName: string | null;
+  email: string | null;
+  role: string | null;
+  band: string | null;
+  avatarChar: string;
+  scores?: {
+    overall: number | null;
+    work_sample?: number | null;
+    problem_solving?: number | null;
+    reliability?: number | null;
+    culture_fit?: number | null;
+  };
+  attempt?: CandidateAttemptSummary;
+}
+
+export interface CandidateDetailSummary extends CandidateSummary {
+  phone?: string | null;
+  telegram?: string | null;
+  age?: number | null;
+  gender?: string | null;
+  education?: string | null;
+}
+
+interface SupabaseAssessmentAttempt {
+  id: string;
+  status: string;
+  answered_count: number | null;
+  total_questions: number | null;
+  progress_percent: number | null;
+  started_at: string | null;
+  submitted_at: string | null;
+  completed_at: string | null;
+  last_activity_at: string | null;
+}
+
+const mapAttemptSummary = (row?: SupabaseAssessmentAttempt): CandidateAttemptSummary | undefined => {
+  if (!row) {
+    return undefined;
+  }
+
+  const status = (row.status ?? 'not_started') as CandidateAttemptStatus;
+  const rawAnswered = Math.max(row.answered_count ?? 0, 0);
+  const totalQuestions = Math.max(row.total_questions ?? rawAnswered, 0);
+  const isCompletedState = status === 'awaiting_ai' || status === 'completed';
+
+  const answeredCount = isCompletedState ? totalQuestions : rawAnswered;
+  const calculatedProgress = totalQuestions > 0 ? (answeredCount / totalQuestions) * 100 : 0;
+  const rawProgress = row.progress_percent != null ? Number(row.progress_percent) : calculatedProgress;
+  const progressPercent = isCompletedState ? 100 : Math.min(100, Math.max(0, rawProgress));
+
+  return {
+    id: row.id,
+    status,
+    answeredCount,
+    totalQuestions,
+    progressPercent,
+    startedAt: row.started_at,
+    submittedAt: row.submitted_at,
+    completedAt: row.completed_at,
+    lastActivityAt: row.last_activity_at,
+  };
+};
+
+interface SupabaseCandidateProfile {
+  id: string;
+  name: string | null;
+  email: string | null;
+  role: string | null;
+  band: string | null;
+  assessment_attempts?: SupabaseAssessmentAttempt[];
+}
+
 interface ProfileUpdates {
   name?: string;
   email?: string;
@@ -127,12 +205,11 @@ interface ProfileUpdates {
   band?: string;
 }
 
-// Interfaces cho hàm getRoles
 interface SupabaseRoleData {
   target_role: string;
+  duration?: number;
 }
 
-// Interfaces cho hàm getAnalyticsData
 interface SupabaseAnalyticsUser {
   id: string;
   name: string;
@@ -155,34 +232,12 @@ interface SupabaseAnalyticsRow {
   user: SupabaseAnalyticsUser[] | null;
 }
 
-// Interfaces cho hàm getCandidates
-interface SupabaseCandidateProfile {
-  id: string;
-  name: string;
-  email: string;
-  role: string;
-  band: string | null;
-  results: { total_score: number | null }[];
-}
-
-
-// Interfaces cho hàm getCandidateDetails
-interface SupabaseCandidateDetails {
-  id: string;
-  name: string;
-  email: string;
-  role: string;
-  band: string | null;
-  scores: { total_score: number | null }[];
-}
-
-
 // ===============================================
-// === CÁC HÀM API CHO CHỨC NĂNG LANDING PAGE ===
+// === C�C H�M API CHO CH?C NANG LANDING PAGE ===
 // ===============================================
 
 /**
- * Lấy dữ liệu trang landing page từ database.
+ * L?y d? li?u trang landing page t? database.
  */
 export const getLandingPageData = async (): Promise<LandingPage> => {
   const { data, error } = await supabase
@@ -191,15 +246,15 @@ export const getLandingPageData = async (): Promise<LandingPage> => {
     .single();
 
   if (error) {
-    console.error('Lá»—i khi táº£i dá»¯ liá»‡u landing page:', error);
-    throw new Error('KhÃ´ng thá»ƒ táº£i dá»¯ liá»‡u landing page.');
+    console.error('Lỗi khi tải dữ liệu landing page:', error);
+    throw new Error('Không thể tải dữ liệu landing page.');
   }
   return data as LandingPage;
 };
 
 /**
- * Cập nhật dữ liệu trang landing page vào database.
- * @param data Dữ liệu cần cập nhật.
+ * C?p nh?t d? li?u trang landing page v�o database.
+ * @param data D? li?u c?n c?p nh?t.
  */
 export const updateLandingPageData = async (data: Partial<LandingPage>) => {
   const { error } = await supabase
@@ -208,36 +263,49 @@ export const updateLandingPageData = async (data: Partial<LandingPage>) => {
     .eq('id', 1);
 
   if (error) {
-    console.error('Lá»—i khi lÆ°u dá»¯ liá»‡u landing page:', error);
-    throw new Error('KhÃ´ng thá»ƒ lÆ°u dá»¯ liá»‡u landing page.');
+    console.error('Lỗi khi lưu dữ liệu landing page:', error);
+    throw new Error('Không thể lưu dữ liệu landing page.');
   }
 };
 
 // ==================================================
-// === CÁC HÀM API CHO CHỨC NĂNG QUẢN LÝ CÂU HỎI ===
+// === C�C H�M API CHO CH?C NANG QU?N L� C�U H?I ===
 // ==================================================
 
 /**
- * Lấy danh sách các vai trò (vị trí công việc) duy nhất từ database.
+ * L?y danh s�ch c�c vai tr� (v? tr� c�ng vi?c) duy nh?t t? database.
  */
-export const getRoles = async (): Promise<string[]> => {
+export const getRoles = async (): Promise<RoleSummary[]> => {
   const { data, error } = await supabase
     .from('assessments')
-    .select('target_role');
+    .select('target_role, duration');
 
   if (error) {
-    console.error('Lá»—i khi táº£i danh sÃ¡ch vai trÃ²:', error);
+    console.error('L?i khi t?i danh s�ch vai tr�:', error);
     return [];
   }
-  
-  const roles = data as SupabaseRoleData[];
-  const distinctRoles = [...new Set(roles.map(item => item.target_role))];
-  return distinctRoles;
+
+  const roles = (data as (SupabaseRoleData & { duration?: number })[]) ?? [];
+  const roleMap = new Map<string, number>();
+
+  roles.forEach((item) => {
+    if (!item.target_role) {
+      return;
+    }
+    if (!roleMap.has(item.target_role)) {
+      roleMap.set(item.target_role, item.duration ?? 1800);
+    }
+  });
+
+  return Array.from(roleMap.entries()).map(([name, duration]) => ({
+    name,
+    duration,
+  }));
 };
 
 /**
- * Lấy tất cả câu hỏi cho một vai trò cụ thể.
- * @param role Tên vai trò.
+ * L?y t?t c? c�u h?i cho m?t vai tr� c? th?.
+ * @param role T�n vai tr�.
  */
 export const getQuestionsByRole = async (role: string): Promise<Question[]> => {
   const { data: assessmentData, error: assessmentError } = await supabase
@@ -247,7 +315,7 @@ export const getQuestionsByRole = async (role: string): Promise<Question[]> => {
     .single();
 
   if (assessmentError) {
-    console.error(`Lá»—i khi táº£i assessment cho vai trÃ² ${role}:`, assessmentError);
+    console.error(`Lỗi khi tải assessment cho vai trò ${role}:`, assessmentError);
     return [];
   }
 
@@ -265,17 +333,17 @@ export const getQuestionsByRole = async (role: string): Promise<Question[]> => {
     .eq('assessment_id', assessmentData.id);
 
   if (error) {
-    console.error(`Lá»—i khi táº£i cÃ¢u há»i cho vai trÃ² ${role}:`, error);
-    throw new Error('KhÃ´ng thá»ƒ táº£i cÃ¢u há»i.');
+    console.error(`Lỗi khi tải câu hỏi cho vai trò ${role}:`, error);
+    throw new Error('Không thể tải câu hỏi.');
   }
 
   return (data as SupabaseQuestionData[]).map(mapSupabaseQuestion);
 };
 
 /**
- * Tạo một câu hỏi mới và các phương án trả lời tương ứng.
- * @param questionData Dữ liệu câu hỏi.
- * @param targetRole Vai trò của câu hỏi.
+ * T?o m?t c�u h?i m?i v� c�c phuong �n tr? l?i tuong ?ng.
+ * @param questionData D? li?u c�u h?i.
+ * @param targetRole Vai tr� c?a c�u h?i.
  * @returns Promise<Question>
  */
 export const createQuestion = async (questionData: QuestionDraft, targetRole: string): Promise<Question> => {
@@ -286,8 +354,8 @@ export const createQuestion = async (questionData: QuestionDraft, targetRole: st
     .single();
 
   if (assessmentError) {
-    console.error('Không tìm thấy bài đánh giá cho vai trò này.');
-    throw new Error('Không thể tạo câu hỏi.');
+    console.error('Kh�ng t�m th?y b�i d�nh gi� cho vai tr� n�y.');
+    throw new Error('Kh�ng th? t?o c�u h?i.');
   }
 
   const { data: newQuestion, error: questionError } = await supabase
@@ -302,8 +370,8 @@ export const createQuestion = async (questionData: QuestionDraft, targetRole: st
     .single();
 
   if (questionError) {
-    console.error('Lỗi khi tạo câu hỏi:', questionError);
-    throw new Error('Không thể tạo câu hỏi.');
+    console.error('L?i khi t?o c�u h?i:', questionError);
+    throw new Error('Kh�ng th? t?o c�u h?i.');
   }
 
   if (MULTIPLE_CHOICE_FORMATS.has(questionData.format) && questionData.options?.length) {
@@ -318,8 +386,8 @@ export const createQuestion = async (questionData: QuestionDraft, targetRole: st
       .insert(optionsData);
 
     if (optionsError) {
-      console.error('Lỗi khi tạo phương án trả lời:', optionsError);
-      throw new Error('Không thể tạo phương án trả lời.');
+      console.error('L?i khi t?o phuong �n tr? l?i:', optionsError);
+      throw new Error('Kh�ng th? t?o phuong �n tr? l?i.');
     }
   }
 
@@ -337,14 +405,14 @@ export const createQuestion = async (questionData: QuestionDraft, targetRole: st
 };
 
 /**
- * Cập nhật thông tin của một câu hỏi và các phương án trả lời.
- * @param questionData Dữ liệu câu hỏi cần cập nhật.
+ * C?p nh?t th�ng tin c?a m?t c�u h?i v� c�c phuong �n tr? l?i.
+ * @param questionData D? li?u c�u h?i c?n c?p nh?t.
  * @returns Promise<void>
  */
 export const updateQuestion = async (questionData: Partial<Question>): Promise<void> => {
   if (!questionData.id) {
     console.error('Missing question ID for update');
-    throw new Error('Không thể cập nhật câu hỏi: Thiếu ID.');
+    throw new Error('Kh�ng th? c?p nh?t c�u h?i: Thi?u ID.');
   }
 
   const { error: questionError } = await supabase
@@ -357,8 +425,8 @@ export const updateQuestion = async (questionData: Partial<Question>): Promise<v
     .eq('id', questionData.id);
 
   if (questionError) {
-    console.error('Lỗi khi cập nhật câu hỏi:', questionError);
-    throw new Error('Không thể cập nhật câu hỏi.');
+    console.error('L?i khi c?p nh?t c�u h?i:', questionError);
+    throw new Error('Kh�ng th? c?p nh?t c�u h?i.');
   }
 
   const isMultipleChoice = questionData.format ? MULTIPLE_CHOICE_FORMATS.has(questionData.format) : false;
@@ -380,7 +448,7 @@ export const updateQuestion = async (questionData: Partial<Question>): Promise<v
 
     if (optionsToInsert.length === 0) {
       console.error('No valid options provided for multiple_choice question');
-      throw new Error('Không thể cập nhật câu hỏi: Cần ít nhất một phương án trả lời.');
+      throw new Error('Kh�ng th? c?p nh?t c�u h?i: C?n �t nh?t m?t phuong �n tr? l?i.');
     }
 
     const { error: insertError } = await supabase
@@ -388,8 +456,8 @@ export const updateQuestion = async (questionData: Partial<Question>): Promise<v
       .insert(optionsToInsert);
 
     if (insertError) {
-      console.error('Lỗi khi thêm options mới:', insertError);
-      throw new Error('Không thể cập nhật các phương án trả lời.');
+      console.error('L?i khi th�m options m?i:', insertError);
+      throw new Error('Kh�ng th? c?p nh?t c�c phuong �n tr? l?i.');
     }
   } else {
     await supabase
@@ -400,8 +468,8 @@ export const updateQuestion = async (questionData: Partial<Question>): Promise<v
 };
 
 /**
- * Xóa một câu hỏi khỏi database.
- * @param questionId ID của câu hỏi.
+ * X�a m?t c�u h?i kh?i database.
+ * @param questionId ID c?a c�u h?i.
  * @returns Promise<void>
  */
 export const deleteQuestion = async (questionId: string): Promise<void> => {
@@ -411,8 +479,8 @@ export const deleteQuestion = async (questionId: string): Promise<void> => {
     .eq('id', questionId);
 
   if (error) {
-    console.error('Lỗi khi xóa câu hỏi:', error);
-    throw new Error('Không thể xóa câu hỏi.');
+    console.error('L?i khi x�a c�u h?i:', error);
+    throw new Error('Kh�ng th? x�a c�u h?i.');
   }
 };
 
@@ -499,38 +567,58 @@ export const deleteQuestionOptionViaApi = async (optionId: string): Promise<void
 };
 
 /**
- * Tạo một vai trò mới bằng cách chèn một câu hỏi mặc định.
- * @param roleName Tên vai trò mới.
+ * T?o m?t vai tr� m?i b?ng c�ch ch�n m?t c�u h?i m?c d?nh.
+ * @param roleName T�n vai tr� m?i.
  * @returns Promise<void>
  */
-export const createRole = async (roleName: string): Promise<void> => {
+export const createRole = async (roleName: string, durationSeconds: number): Promise<RoleSummary> => {
   const startDate = new Date();
   const endDate = new Date();
   endDate.setMonth(endDate.getMonth() + 1);
 
-  const { error: assessmentError } = await supabase
+  const { data, error: assessmentError } = await supabase
     .from('assessments')
     .insert([
-      { 
-        target_role: roleName, 
-        title: `Đánh giá cho ${roleName}`,
-        description: `Bài đánh giá dành riêng cho vị trí công việc ${roleName}`,
-        duration: 1800, 
+      {
+        target_role: roleName,
+        title: `��nh gi� cho ${roleName}`,
+        description: `B�i d�nh gi� d�nh ri�ng cho v? tr� c�ng vi?c ${roleName}`,
+        duration: durationSeconds,
         is_active: true,
         start_date: startDate.toISOString().slice(0, 10),
         end_date: endDate.toISOString().slice(0, 10)
       }
-    ]);
-  
+    ])
+    .select('target_role, duration')
+    .single();
+
   if (assessmentError) {
-    console.error('Lỗi khi tạo bài đánh giá cho vai trò mới:', assessmentError);
-    throw new Error('Không thể tạo vai trò mới.');
+    console.error('L?i khi t?o b�i d�nh gi� cho vai tr� m?i:', assessmentError);
+    throw new Error('Kh�ng th? t?o vai tr� m?i.');
+  }
+
+  const insertedDuration = data?.duration ?? durationSeconds;
+  return {
+    name: data?.target_role ?? roleName,
+    duration: insertedDuration,
+  };
+};
+
+export const updateRoleDuration = async (roleName: string, durationSeconds: number): Promise<void> => {
+  const { error } = await supabase
+    .from('assessments')
+    .update({ duration: durationSeconds })
+    .eq('target_role', roleName);
+
+  if (error) {
+    console.error('L?i khi c?p nh?t th?i lu?ng cho vai tr�:', error);
+    throw new Error('Kh�ng th? c?p nh?t th?i lu?ng b�i d�nh gi�.');
   }
 };
 
 /**
- * Xóa một vai trò và tất cả các câu hỏi liên quan.
- * @param roleName Tên vai trò cần xóa.
+ * X�a m?t vai tr� v� t?t c? c�c c�u h?i li�n quan.
+ * @param roleName T�n vai tr� c?n x�a.
  * @returns Promise<void>
  */
 export const deleteRole = async (roleName: string): Promise<void> => {
@@ -540,17 +628,17 @@ export const deleteRole = async (roleName: string): Promise<void> => {
     .eq('target_role', roleName);
   
   if (assessmentError) {
-    console.error('Lỗi khi xóa vai trò:', assessmentError);
-    throw new Error('Không thể xóa vai trò.');
+    console.error('L?i khi x�a vai tr�:', assessmentError);
+    throw new Error('Kh�ng th? x�a vai tr�.');
   }
 };
 
 // ===================================================
-// === CÁC HÀM API CHO CHỨC NĂNG PHÂN TÍCH/BÁO CÁO ===
+// === C�C H�M API CHO CH?C NANG PH�N T�CH/B�O C�O ===
 // ===================================================
 
 /**
- * Lấy dữ liệu cần thiết cho trang phân tích và báo cáo.
+ * L?y d? li?u c?n thi?t cho trang ph�n t�ch v� b�o c�o.
  * @returns Promise<any>
  */
 export const getAnalyticsData = async () => {
@@ -563,8 +651,8 @@ export const getAnalyticsData = async () => {
     `);
 
   if (error) {
-    console.error('Lỗi khi tải dữ liệu phân tích:', error);
-    throw new Error('Không thể tải dữ liệu phân tích.');
+    console.error('L?i khi t?i d? li?u ph�n t�ch:', error);
+    throw new Error('Kh�ng th? t?i d? li?u ph�n t�ch.');
   }
 
   const formattedData = (data as SupabaseAnalyticsRow[])
@@ -588,13 +676,13 @@ export const getAnalyticsData = async () => {
 };
 
 // =================================================
-// === CÁC HÀM API CHO CHỨC NĂNG ỨNG VIÊN/HỒ SƠ ===
+// === C�C H�M API CHO CH?C NANG ?NG VI�N/H? SO ===
 // =================================================
 
 /**
- * Cập nhật thông tin hồ sơ ứng viên.
- * @param candidateId ID của ứng viên.
- * @param updates Dữ liệu cần cập nhật.
+ * C?p nh?t th�ng tin h? so ?ng vi�n.
+ * @param candidateId ID c?a ?ng vi�n.
+ * @param updates D? li?u c?n c?p nh?t.
  * @returns Promise<void>
  */
 export const updateCandidateInfo = async (candidateId: string, updates: ProfileUpdates): Promise<void> => {
@@ -604,30 +692,12 @@ export const updateCandidateInfo = async (candidateId: string, updates: ProfileU
     .eq('id', candidateId);
 
   if (error) {
-    console.error('Lỗi khi cập nhật thông tin ứng viên:', error);
-    throw new Error('Không thể cập nhật thông tin ứng viên.');
+    console.error('L?i khi c?p nh?t th�ng tin ?ng vi�n:', error);
+    throw new Error('Kh�ng th? c?p nh?t th�ng tin ?ng vi�n.');
   }
 };
 
-export const getCandidateDetails = async (candidateId: string) => {
-  const { data, error } = await supabase
-    .from('profiles')
-    .select(`
-      *,
-      scores:results(total_score)
-    `)
-    .eq('id', candidateId)
-    .single();
-
-  if (error) {
-    console.error('Lỗi khi tải dữ liệu chi tiết ứng viên:', error);
-    throw new Error('Không thể tải dữ liệu chi tiết ứng viên.');
-  }
-
-  return data;
-};
-
-export const getCandidates = async () => {
+export const getCandidateDetails = async (candidateId: string): Promise<CandidateDetailSummary> => {
   const { data, error } = await supabase
     .from('profiles')
     .select(`
@@ -636,28 +706,101 @@ export const getCandidates = async () => {
       email,
       role,
       band,
-      results(total_score)
-    `);
+      assessment_attempts (
+        id,
+        status,
+        answered_count,
+        total_questions,
+        progress_percent,
+        started_at,
+        submitted_at,
+        completed_at,
+        last_activity_at
+      )
+    `)
+    .eq('id', candidateId)
+
+    .order('created_at', { foreignTable: 'assessment_attempts', ascending: false })
+    .limit(1, { foreignTable: 'assessment_attempts' })
+    .single();
 
   if (error) {
-    console.error('Lỗi khi tải dữ liệu ứng viên:', error);
-    throw new Error('Không thể tải dữ liệu ứng viên.');
+    console.error('L?i khi t?i d? li?u chi ti?t ?ng vi�n:', error);
+    throw new Error('Kh�ng th? t?i d? li?u chi ti?t ?ng vi�n.');
   }
-  const formattedData = (data as SupabaseCandidateProfile[]).map(item => ({
-    id: item.id,
-    fullName: item.name,
-    email: item.email,
-    role: item.role,
-    band: item.band,
-    avatarChar: item.name ? item.name.charAt(0).toUpperCase() : '?',
-    scores: {
-      overall: item.results.length > 0 ? item.results[0].total_score : null,
-    },
-    status: item.results.length > 0 ? 'completed' : 'in_progress',
-    startTime: new Date(),
-    phone: 'N/A',
-    telegram: 'N/A',
-  }));
 
-  return formattedData;
+  const attempt = mapAttemptSummary(data?.assessment_attempts?.[0]);
+
+  return {
+    id: data.id,
+    fullName: data.name ?? null,
+    email: data.email ?? null,
+    role: data.role ?? null,
+    band: data.band ?? null,
+    avatarChar: (data.name ?? '?').charAt(0).toUpperCase(),
+    attempt,
+    phone: null,
+    telegram: null,
+    age: null,
+    gender: null,
+    education: null,
+  } satisfies CandidateDetailSummary;
 };
+
+export const getCandidates = async (): Promise<CandidateSummary[]> => {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select(`
+      id,
+      name,
+      email,
+      role,
+      band,
+      assessment_attempts (
+        id,
+        status,
+        answered_count,
+        total_questions,
+        progress_percent,
+        started_at,
+        submitted_at,
+        completed_at,
+        last_activity_at
+      )
+    `)
+    .order('created_at', { foreignTable: 'assessment_attempts', ascending: false })
+    .limit(1, { foreignTable: 'assessment_attempts' });
+
+  if (error) {
+    console.error('L?i khi t?i d? li?u ?ng vi�n:', error);
+    throw new Error('Kh�ng th? t?i d? li?u ?ng vi�n.');
+  }
+
+  const rows = (data as SupabaseCandidateProfile[]) ?? [];
+
+  return rows.map((item) => {
+    const attempt = mapAttemptSummary(item.assessment_attempts?.[0]);
+
+    return {
+      id: item.id,
+      fullName: item.name ?? null,
+      email: item.email ?? null,
+      role: item.role ?? null,
+      band: item.band ?? null,
+      avatarChar: (item.name ?? '?').charAt(0).toUpperCase(),
+        attempt,
+    } satisfies CandidateSummary;
+  });
+};
+
+
+
+
+
+
+
+
+
+
+
+

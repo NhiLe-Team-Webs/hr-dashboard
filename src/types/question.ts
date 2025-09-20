@@ -49,3 +49,8 @@ export interface QuestionTypeInfo {
   label: string;
   color: string;
 }
+
+export interface RoleSummary {
+  name: string;
+  duration: number;
+}
