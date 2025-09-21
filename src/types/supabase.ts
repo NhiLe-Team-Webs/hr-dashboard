@@ -5,6 +5,7 @@ export interface ProfileUpdates {
   name?: string;
   email?: string;
   role?: string;
+  band?: string;
 }
 
 // Interfaces for the Analytics data returned by the Supabase query
@@ -19,7 +20,17 @@ export interface SupabaseAnalyticsAssessment {
 }
 
 export interface SupabaseAnalyticsData {
-  total_score: number;
+  overall_score: number | null;
+  skill_scores: Record<string, unknown> | null;
+  strengths: unknown;
+  weaknesses: unknown;
+  recommended_roles: unknown;
+  summary: string | null;
+  development_suggestions: unknown;
+  ai_summary: Record<string, unknown> | null;
+  analysis_model: string | null;
+  analysis_version: string | null;
+  analysis_completed_at: string | null;
   user: SupabaseAnalyticsUser;
   assessment: SupabaseAnalyticsAssessment;
 }

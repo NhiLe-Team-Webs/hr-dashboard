@@ -1,5 +1,5 @@
 ﻿import { useEffect, useMemo, useState } from 'react';
-import { Calendar, Mail, User, Trophy, Target, Users, Briefcase } from 'lucide-react';
+import { Calendar, Mail, User, Trophy, Target, Users, Briefcase, Sparkles, AlertTriangle, Lightbulb } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -66,20 +66,39 @@ export const CandidateDetail = ({ candidateId }: CandidateDetailProps) => {
   }, [candidateId]);
 
   const attempt = candidate?.attempt;
-  const skillScores = useMemo(() => {
-    if (!candidate?.scores) {
-      return null;
-    }
-    const scores = {
-      'Work Sample': candidate.scores.work_sample,
-      'Problem Solving': candidate.scores.problem_solving,
-      'Reliability': candidate.scores.reliability,
-      'Culture Fit': candidate.scores.culture_fit,
-    } as Record<string, number | null | undefined>;
+  const aiInsights = candidate?.aiInsights;
+  const overallScore = aiInsights?.overallScore ?? null;
+  const strengths = aiInsights?.strengths ?? [];
+  const weaknesses = aiInsights?.weaknesses ?? [];
+  const recommendedRoles = aiInsights?.recommendedRoles ?? [];
+  const developmentSuggestions = aiInsights?.developmentSuggestions ?? [];
+  const analysisCompletedAt = aiInsights?.analysisCompletedAt ? formatDate(aiInsights.analysisCompletedAt) : null;
 
-    const hasValue = Object.values(scores).some((value) => typeof value === 'number');
-    return hasValue ? scores : null;
-  }, [candidate?.scores]);
+  const skillEntries = useMemo(() => {
+    const record = aiInsights?.skillScores;
+    if (!record) {
+      return [] as Array<[string, number]>;
+    }
+
+    const entries: Array<[string, number]> = [];
+    Object.entries(record).forEach(([skill, rawValue]) => {
+      if (rawValue == null) {
+        return;
+      }
+      const numericValue = typeof rawValue === 'number' ? rawValue : Number(rawValue);
+      if (Number.isFinite(numericValue)) {
+        entries.push([skill, numericValue]);
+      }
+    });
+
+    return entries.sort((a, b) => b[1] - a[1]);
+  }, [aiInsights?.skillScores]);
+
+  const formatSkillLabel = (skill: string) =>
+    skill
+      .split(/[\s_]+/)
+      .map((word) => (word ? word.charAt(0).toUpperCase() + word.slice(1) : word))
+      .join(' ');
 
   if (loading) {
     return <div className="text-center p-8">Đang tải thông tin ứng viên...</div>;
@@ -110,11 +129,11 @@ export const CandidateDetail = ({ candidateId }: CandidateDetailProps) => {
       </div>
 
       <div className="p-6 space-y-6">
-        {candidate.scores?.overall != null && (
+        {overallScore != null && (
           <div className="text-center">
             <div className="inline-flex items-center justify-center w-24 h-24 bg-gradient-to-br from-primary/10 to-primary/5 rounded-full border-4 border-primary/20 mb-3">
-              <span className={`text-3xl font-bold ${getScoreColor(candidate.scores.overall)}`}>
-                {candidate.scores.overall}
+              <span className={`text-3xl font-bold ${getScoreColor(overallScore)}`}>
+                {Math.round(overallScore)}
               </span>
             </div>
             {candidate.band && (
@@ -124,7 +143,97 @@ export const CandidateDetail = ({ candidateId }: CandidateDetailProps) => {
                 </Badge>
               </div>
             )}
+            {analysisCompletedAt && (
+              <p className="text-xs text-muted-foreground mt-2">Phan tich luc: {analysisCompletedAt}</p>
+            )}
           </div>
+        )}
+
+        {aiInsights && (
+          <>
+            {(aiInsights.summary || recommendedRoles.length > 0) && (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {aiInsights.summary && (
+                  <div className="bg-muted/30 border border-border/60 rounded-2xl p-4 space-y-2">
+                    <h3 className="font-semibold text-foreground flex items-center gap-2">
+                      <User className="w-4 h-4" />
+                      Tong quan AI
+                    </h3>
+                    <p className="text-sm text-muted-foreground leading-relaxed">{aiInsights.summary}</p>
+                    {(analysisCompletedAt || aiInsights.model) && (
+                      <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
+                        {analysisCompletedAt && <span>Phan tich luc: {analysisCompletedAt}</span>}
+                        {aiInsights.model && (
+                          <span>
+                            Model: {aiInsights.model}
+                            {aiInsights.version ? ` (${aiInsights.version})` : ''}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+                {recommendedRoles.length > 0 && (
+                  <div className="bg-muted/30 border border-border/60 rounded-2xl p-4 space-y-2">
+                    <h3 className="font-semibold text-foreground flex items-center gap-2">
+                      <Target className="w-4 h-4" />
+                      Vai tro goi y
+                    </h3>
+                    <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
+                      {recommendedRoles.map((role) => (
+                        <li key={role} className="text-foreground font-medium">
+                          {role}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
+            {(strengths.length > 0 || weaknesses.length > 0 || developmentSuggestions.length > 0) && (
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                {strengths.length > 0 && (
+                  <div className="bg-muted/20 border border-border/60 rounded-2xl p-4 space-y-2">
+                    <h3 className="font-semibold text-foreground flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-primary" />
+                      Diem manh
+                    </h3>
+                    <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
+                      {strengths.map((item) => (
+                        <li key={item}>{item}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {weaknesses.length > 0 && (
+                  <div className="bg-muted/20 border border-border/60 rounded-2xl p-4 space-y-2">
+                    <h3 className="font-semibold text-foreground flex items-center gap-2">
+                      <AlertTriangle className="w-4 h-4 text-amber-500" />
+                      Diem can cai thien
+                    </h3>
+                    <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
+                      {weaknesses.map((item) => (
+                        <li key={item}>{item}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {developmentSuggestions.length > 0 && (
+                  <div className="bg-muted/20 border border-border/60 rounded-2xl p-4 space-y-2">
+                    <h3 className="font-semibold text-foreground flex items-center gap-2">
+                      <Lightbulb className="w-4 h-4 text-emerald-500" />
+                      Goi y phat trien
+                    </h3>
+                    <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
+                      {developmentSuggestions.map((item) => (
+                        <li key={item}>{item}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
+          </>
         )}
 
         <div className="space-y-4">
@@ -201,27 +310,28 @@ export const CandidateDetail = ({ candidateId }: CandidateDetailProps) => {
           </div>
         </div>
 
-        {skillScores && (
+        {skillEntries.length > 0 && (
           <div>
             <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2">
               <Trophy className="w-4 h-4" />
-              Điểm số chi tiết
+              Diem so chi tiet
             </h3>
             <div className="space-y-4">
-              {Object.entries(skillScores).map(([skill, score]) => {
-                const value = typeof score === 'number' ? score : undefined;
-                const colorClass = typeof value === 'number' ? getScoreColor(value) : 'text-muted-foreground';
+              {skillEntries.map(([skill, value]) => {
+                const icon = skillIcons[skill as keyof typeof skillIcons] ?? <Target className="w-4 h-4 text-primary/70" />;
+                const label = formatSkillLabel(skill);
+                const progressValue = Math.max(0, Math.min(100, value));
 
                 return (
                   <div key={skill} className="space-y-2">
                     <div className="flex justify-between items-center">
                       <div className="flex items-center gap-2">
-                        {skillIcons[skill as keyof typeof skillIcons]}
-                        <span className="text-sm font-medium">{skill}</span>
+                        {icon}
+                        <span className="text-sm font-medium">{label}</span>
                       </div>
-                      <span className={`font-bold text-lg ${colorClass}`}>{value ?? '—'}</span>
+                      <span className={`font-bold text-lg ${getScoreColor(value)}`}>{Math.round(value)}</span>
                     </div>
-                    <Progress value={value ?? 0} className="h-2" />
+                    <Progress value={progressValue} className="h-2" />
                   </div>
                 );
               })}

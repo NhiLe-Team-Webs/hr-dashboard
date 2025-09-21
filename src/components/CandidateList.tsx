@@ -1,5 +1,5 @@
 ﻿import { useEffect, useMemo, useState } from 'react';
-import { Plus, Search, Calendar, UserCheck, Mail, Send, AlertCircle, Clock } from 'lucide-react';
+import { Plus, Search, Calendar, UserCheck, Mail, Send, AlertCircle, Clock, Target } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -237,10 +237,17 @@ export const CandidateList = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-4">
           {filteredCandidates.map((candidate) => {
-            const attemptStatus = candidate.attempt?.status ?? 'not_started';
-            const progressPercent = roundProgress(candidate.attempt);
-            const progressLabel = formatProgressLabel(candidate.attempt);
-            const startedAt = candidate.attempt?.startedAt ? formatDate(candidate.attempt.startedAt, { dateStyle: 'short' }) : null;
+            const attempt = candidate.attempt;
+            const attemptStatus = attempt?.status ?? 'not_started';
+            const overallScore = candidate.aiInsights?.overallScore ?? null;
+            const recommendedRole = candidate.aiInsights?.recommendedRoles?.[0] ?? null;
+            const summarySnippet = candidate.aiInsights?.summary ?? null;
+            const truncatedSummary = summarySnippet && summarySnippet.length > 140
+              ? `${summarySnippet.slice(0, 140)}...`
+              : summarySnippet;
+            const progressPercent = roundProgress(attempt);
+            const progressLabel = formatProgressLabel(attempt);
+            const startedAt = attempt?.startedAt ? formatDate(attempt.startedAt, { dateStyle: 'short' }) : null;
 
             return (
               <Card
@@ -291,21 +298,30 @@ export const CandidateList = () => {
                             {candidate.email ?? '—'}
                           </button>
                         </div>
+                        {recommendedRole && (
+                          <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                            <Target className="w-3 h-3" />
+                            Goi y: <span className="text-foreground font-medium">{recommendedRole}</span>
+                          </div>
+                        )}
+                        {truncatedSummary && (
+                          <p className="text-sm text-muted-foreground">{truncatedSummary}</p>
+                        )}
                         {startedAt && (
                           <div className="text-sm text-muted-foreground flex items-center gap-1">
                             <Calendar className="w-3 h-3" />
-                            Ngày bắt đầu: {startedAt}
+                            Ngay bat dau: {startedAt}
                           </div>
                         )}
                       </div>
                     </div>
 
                     <div className="flex flex-col items-end gap-2">
-                      {candidate.scores?.overall != null ? (
+                      {overallScore != null ? (
                         <div className="text-center space-y-1">
                           <div className="flex items-center gap-2">
-                            <span className={`text-2xl font-bold ${getScoreColor(candidate.scores.overall)}`}>
-                              {candidate.scores.overall}
+                            <span className={`text-2xl font-bold ${getScoreColor(overallScore ?? 0)}`}>
+                              {Math.round(overallScore ?? 0)}
                             </span>
                             {candidate.band && (
                               <Badge className={`${getBandColor(candidate.band)} font-bold pointer-events-none`}>

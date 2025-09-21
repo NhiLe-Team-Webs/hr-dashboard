@@ -1,7 +1,7 @@
 // src/components/Analytics.tsx
 import { useEffect, useRef, useState } from 'react';
 import { Card } from '@/components/ui/card';
-import { getAnalyticsData } from '@/lib/api';
+import { getAnalyticsData, type CandidateAIInsights, type CandidateAttemptStatus } from '@/lib/api';
 import Chart from 'chart.js/auto';
 
 // Khai báo một interface để đảm bảo type an toàn
@@ -10,10 +10,8 @@ interface CandidateData {
   name: string;
   role: string;
   band: string | null;
-  status: 'completed' | 'in-progress';
-  scores: {
-    overall: number | null;
-  };
+  status: CandidateAttemptStatus;
+  aiInsights?: CandidateAIInsights;
 }
 
 export const Analytics = () => {
@@ -26,17 +24,41 @@ export const Analytics = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const completedCandidates = candidates.filter(c => c.status === 'completed');
+  const completedCandidates = candidates.filter((candidate) => candidate.status === 'completed');
   const totalCandidates = candidates.length;
   const completionRate = totalCandidates > 0 ? (completedCandidates.length / totalCandidates) * 100 : 0;
-  
-  const aPlayers = completedCandidates.filter(c => c.band === 'A').length;
+
+  const awaitingAiCount = candidates.filter((candidate) => candidate.status === 'awaiting_ai').length;
+
+  const overallScores = completedCandidates
+    .map((candidate) => candidate.aiInsights?.overallScore)
+    .filter((value): value is number => typeof value === 'number' && Number.isFinite(value));
+
+  const averageScore = overallScores.length > 0
+    ? overallScores.reduce((acc, value) => acc + value, 0) / overallScores.length
+    : null;
+
+  const recommendedRoleCounts = completedCandidates.reduce<Record<string, number>>((acc, candidate) => {
+    candidate.aiInsights?.recommendedRoles?.forEach((roleName) => {
+      const key = roleName.trim();
+      if (!key) {
+        return;
+      }
+      acc[key] = (acc[key] ?? 0) + 1;
+    });
+    return acc;
+  }, {});
+
+  const topRecommendedRole = Object.entries(recommendedRoleCounts)
+    .sort((a, b) => b[1] - a[1])[0]?.[0];
+
+  const aPlayers = completedCandidates.filter((candidate) => candidate.band === 'A').length;
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         const data = await getAnalyticsData();
-        setCandidates(data);
+        setCandidates(data as CandidateData[]);
       } catch (err) {
         setError("Không thể tải dữ liệu phân tích.");
         console.error(err);
@@ -95,8 +117,9 @@ export const Analytics = () => {
     // Role Chart
     if (roleChartRef.current) {
       const roleCounts: Record<string, number> = {};
-      candidates.forEach(c => {
-        roleCounts[c.role] = (roleCounts[c.role] || 0) + 1;
+      candidates.forEach((candidate) => {
+        const key = candidate.role ?? 'Unassigned';
+        roleCounts[key] = (roleCounts[key] ?? 0) + 1;
       });
 
       const roleCtx = roleChartRef.current.getContext('2d');
@@ -160,11 +183,21 @@ export const Analytics = () => {
           </Card>
           <Card className="p-6 flex flex-col bg-card border border-border rounded-3xl shadow-lg">
             <h3 className="text-muted-foreground font-medium mb-2">Điểm trung bình</h3>
-            <p className="text-4xl font-bold text-foreground">N/A</p>
+            <p className="text-4xl font-bold text-foreground">{averageScore != null ? averageScore.toFixed(0) : 'N/A'}</p>
           </Card>
           <Card className="p-6 flex flex-col bg-card border border-border rounded-3xl shadow-lg">
-            <h3 className="text-muted-foreground font-medium mb-2">Ứng viên tiềm năng (A)</h3>
-            <p className="text-4xl font-bold text-foreground">{aPlayers}</p>
+            <h3 className="text-muted-foreground font-medium mb-2">Cho AI cham</h3>
+            <p className="text-4xl font-bold text-foreground">{awaitingAiCount}</p>
+            <div className="mt-3 text-sm text-muted-foreground space-y-1">
+              <div>
+                A Player:{' '}
+                <span className="font-semibold text-foreground">{aPlayers}</span>
+              </div>
+              <div>
+                Top goi y:{' '}
+                <span className="font-semibold text-foreground">{topRecommendedRole ?? 'N/A'}</span>
+              </div>
+            </div>
           </Card>
         </div>
 
