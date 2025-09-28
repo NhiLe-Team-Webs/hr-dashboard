@@ -7,7 +7,6 @@ import {
   Mail,
   Send,
   AlertCircle,
-  Clock,
   Target,
   AlertTriangle,
   Briefcase,
@@ -281,10 +280,7 @@ export const CandidateList = () => {
             const attemptStatus = attempt?.status ?? 'not_started';
             const overallScore = candidate.aiInsights?.overallScore ?? null;
             const recommendedRole = candidate.aiInsights?.recommendedRoles?.[0] ?? null;
-            const summarySnippet = candidate.aiInsights?.summary ?? null;
-            const truncatedSummary = summarySnippet && summarySnippet.length > 140
-              ? `${summarySnippet.slice(0, 140)}...`
-              : summarySnippet;
+            const summaryHighlight = candidate.aiInsights?.summary ?? null;
             const progressPercent = roundProgress(attempt);
             const progressLabel = formatProgressLabel(attempt);
             const startedAt = attempt?.startedAt ? formatDate(attempt.startedAt, { dateStyle: 'short' }) : null;
@@ -297,6 +293,10 @@ export const CandidateList = () => {
             const hasCheatingAlerts = cheatingCount > 0;
             const assessmentTitle = attempt?.assessmentTitle ?? null;
             const assessmentRole = attempt?.assessmentRole ?? null;
+            const strengths = candidate.aiInsights?.strengths ?? [];
+            const developmentAreas = candidate.aiInsights?.weaknesses ?? [];
+            const topStrengths = strengths.slice(0, 2);
+            const topDevelopment = developmentAreas.slice(0, 2);
 
             return (
               <Card
@@ -308,15 +308,15 @@ export const CandidateList = () => {
                 }`}
                 onClick={() => setSelectedCandidateId(candidate.id)}
               >
-                <div className="p-6">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex items-start gap-4 flex-1">
-                      <div className="w-16 h-16 bg-gradient-to-br from-primary to-primary/80 rounded-full flex items-center justify-center text-primary-foreground font-bold text-xl shadow-lg">
+                <div className="p-6 space-y-4">
+                  <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                    <div className="flex flex-1 items-start gap-4">
+                      <div className="w-16 h-16 flex items-center justify-center rounded-full bg-gradient-to-br from-primary to-primary/80 text-primary-foreground font-bold text-xl shadow-lg">
                         {candidate.avatarChar}
                       </div>
-                      <div className="flex-1 min-w-0 space-y-1">
-                        <div className="flex items-center gap-2">
-                          <h3 className="font-bold text-lg text-foreground truncate">
+                      <div className="flex-1 min-w-0 space-y-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h3 className="font-semibold text-lg text-foreground truncate">
                             {candidate.fullName ?? 'Chưa cập nhật'}
                           </h3>
                           {candidate.role && (
@@ -324,115 +324,148 @@ export const CandidateList = () => {
                               {candidate.role}
                             </Badge>
                           )}
+                          {candidate.attemptCount != null && candidate.attemptCount > 1 && (
+                            <Badge variant="secondary" className="font-medium">
+                              {candidate.attemptCount} lần đánh giá
+                            </Badge>
+                          )}
                         </div>
-                        <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                          <Mail className="w-3 h-3 flex-shrink-0" />
-                          <button
-                            onClick={async (event) => {
-                              event.stopPropagation();
-                              if (candidate.email) {
-                                try {
-                                  await navigator.clipboard.writeText(candidate.email);
-                                  toast({
-                                    title: 'Đã copy email',
-                                    description: `Email ${candidate.email} đã được sao chép`,
-                                  });
-                                } catch (err) {
-                                  console.log('Failed to copy email:', err);
+                        <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+                          <div className="flex items-center gap-1 min-w-0">
+                            <Mail className="w-3 h-3 flex-shrink-0" />
+                            <button
+                              onClick={async (event) => {
+                                event.stopPropagation();
+                                if (candidate.email) {
+                                  try {
+                                    await navigator.clipboard.writeText(candidate.email);
+                                    toast({
+                                      title: 'Đã copy email',
+                                      description: `Email ${candidate.email} đã được sao chép`,
+                                    });
+                                  } catch (err) {
+                                    console.log('Failed to copy email:', err);
+                                  }
                                 }
-                              }
-                            }}
-                            className="truncate hover:text-primary hover:underline transition-colors cursor-pointer"
-                          >
-                            {candidate.email ?? '—'}
-                          </button>
-                        </div>
-                        {recommendedRole && (
-                          <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                            <Sparkles className="w-3 h-3" />
-                            Gợi ý: <span className="text-foreground font-medium">{recommendedRole}</span>
+                              }}
+                              className="truncate hover:text-primary hover:underline transition-colors cursor-pointer"
+                            >
+                              {candidate.email ?? '—'}
+                            </button>
                           </div>
-                        )}
-                        {assessmentTitle && (
-                          <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                            <Briefcase className="w-3 h-3" />
-                            Bài đánh giá:{' '}
-                            <span className="text-foreground font-medium truncate">
-                              {assessmentTitle}
-                            </span>
-                          </div>
-                        )}
-                        {assessmentRole && (
-                          <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                            <Target className="w-3 h-3" />
-                            Vị trí mục tiêu: <span className="text-foreground font-medium">{assessmentRole}</span>
-                          </div>
-                        )}
-                        {truncatedSummary && (
-                          <p className="text-sm text-muted-foreground">{truncatedSummary}</p>
-                        )}
-                        {startedAt && (
-                          <div className="text-sm text-muted-foreground flex items-center gap-1">
-                            <Calendar className="w-3 h-3" />
-                            Ngay bat dau: {startedAt}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="flex flex-col items-end gap-2">
-                      {overallScore != null ? (
-                        <div className="text-center space-y-1">
-                          <div className="flex items-center gap-2">
-                            <span className={`text-2xl font-bold ${getScoreColor(overallScore ?? 0)}`}>
-                              {Math.round(overallScore ?? 0)}
-                            </span>
-                            {candidate.band && (
-                              <Badge className={`${getBandColor(candidate.band)} font-bold pointer-events-none`}>
-                                {candidate.band}
-                              </Badge>
-                            )}
-                          </div>
-                          {getStatusBadge(attemptStatus)}
-                          {analysisCompletedAt && (
-                            <div className="text-xs text-muted-foreground flex items-center gap-1 justify-center">
-                              <Calendar className="w-3 h-3" />
-                              Chấm AI: {analysisCompletedAt}
+                          {assessmentTitle && (
+                            <div className="flex items-center gap-1 text-sm">
+                              <Briefcase className="w-3 h-3" />
+                              <span className="text-muted-foreground">Bài đánh giá:</span>
+                              <span className="text-foreground font-medium truncate max-w-[12rem]">
+                                {assessmentTitle}
+                              </span>
+                            </div>
+                          )}
+                          {assessmentRole && (
+                            <div className="flex items-center gap-1 text-sm">
+                              <Target className="w-3 h-3" />
+                              <span className="text-muted-foreground">Vị trí mục tiêu:</span>
+                              <span className="text-foreground font-medium truncate max-w-[10rem]">
+                                {assessmentRole}
+                              </span>
                             </div>
                           )}
                         </div>
-                      ) : (
-                        <div className="text-right space-y-1">
-                          <div className="text-2xl font-bold text-primary">{progressPercent}%</div>
-                          <div className="text-xs text-muted-foreground flex items-center gap-1 justify-end">
-                            <Clock className="w-3 h-3" />
-                            {progressLabel}
-                          </div>
-                          {getStatusBadge(attemptStatus)}
+                        {summaryHighlight && (
+                          <p className="text-sm text-muted-foreground leading-relaxed max-h-16 overflow-hidden">
+                            {summaryHighlight}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex flex-col items-end gap-2 text-right">
+                      <div className="inline-flex flex-col items-center justify-center">
+                        <div className="inline-flex h-20 w-20 items-center justify-center rounded-full border-4 border-primary/20 bg-primary/10">
+                          <span className={`text-2xl font-bold ${overallScore != null ? getScoreColor(overallScore) : 'text-primary'}`}>
+                            {overallScore != null ? Math.round(overallScore) : `${progressPercent}%`}
+                          </span>
+                        </div>
+                        <span className="mt-2 text-xs text-muted-foreground">
+                          {overallScore != null ? 'Điểm tổng' : progressLabel}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {candidate.band && overallScore != null && (
+                          <Badge className={`${getBandColor(candidate.band)} font-bold pointer-events-none`}>
+                            {candidate.band}
+                          </Badge>
+                        )}
+                        {getStatusBadge(attemptStatus)}
+                      </div>
+                      {analysisCompletedAt && (
+                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                          <Calendar className="w-3 h-3" />
+                          Chấm AI: {analysisCompletedAt}
                         </div>
                       )}
                     </div>
                   </div>
-                  {(aiStatusLabel || durationLabel || hasCheatingAlerts) && (
-                    <div className="mt-4 flex flex-wrap gap-2 text-xs">
-                      {aiStatusLabel && (
-                        <span className="inline-flex items-center gap-1 rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-sky-700">
+
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 text-sm text-muted-foreground">
+                    {startedAt && (
+                      <div className="flex items-center gap-2 rounded-xl border border-slate-200/70 bg-slate-50/50 px-3 py-2">
+                        <Calendar className="w-4 h-4 text-slate-500" />
+                        <div className="flex flex-col">
+                          <span className="text-xs uppercase tracking-wide text-slate-500">Ngày bắt đầu</span>
+                          <span className="text-foreground font-medium">{startedAt}</span>
+                        </div>
+                      </div>
+                    )}
+                    {durationLabel && (
+                      <div className="flex items-center gap-2 rounded-xl border border-slate-200/70 bg-slate-50/50 px-3 py-2">
+                        <Timer className="w-4 h-4 text-slate-500" />
+                        <div className="flex flex-col">
+                          <span className="text-xs uppercase tracking-wide text-slate-500">Thời lượng</span>
+                          <span className="text-foreground font-medium">{durationLabel}</span>
+                        </div>
+                      </div>
+                    )}
+                    {aiStatusLabel && (
+                      <div className="flex items-center gap-2 rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-sky-700">
+                        <Sparkles className="w-4 h-4" />
+                        <div className="flex flex-col">
+                          <span className="text-xs uppercase tracking-wide">AI</span>
+                          <span className="text-sm font-medium text-sky-800">{aiStatusLabel}</span>
+                        </div>
+                      </div>
+                    )}
+                    {hasCheatingAlerts && (
+                      <div className="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-amber-800">
+                        <AlertTriangle className="w-4 h-4" />
+                        <div className="flex flex-col">
+                          <span className="text-xs uppercase tracking-wide">Giám sát</span>
+                          <span className="text-sm font-medium">{cheatingCount} cảnh báo</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {(recommendedRole || topStrengths.length > 0 || topDevelopment.length > 0) && (
+                    <div className="flex flex-wrap items-center gap-2 text-xs">
+                      {recommendedRole && (
+                        <Badge className="flex items-center gap-1 bg-primary/10 text-primary border-primary/20">
+                          <Briefcase className="w-3 h-3" />
+                          {recommendedRole}
+                        </Badge>
+                      )}
+                      {topStrengths.map((item) => (
+                        <Badge key={item} variant="secondary" className="flex items-center gap-1">
                           <Sparkles className="w-3 h-3" />
-                          {aiStatusLabel}
-                        </span>
-                      )}
-                      {durationLabel && (
-                        <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-slate-700">
-                          <Timer className="w-3 h-3" />
-                          {durationLabel}
-                        </span>
-                      )}
-                      {hasCheatingAlerts && (
-                        <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-amber-700">
+                          {item}
+                        </Badge>
+                      ))}
+                      {topDevelopment.map((item) => (
+                        <Badge key={item} variant="outline" className="flex items-center gap-1 border-amber-300 text-amber-700">
                           <AlertTriangle className="w-3 h-3" />
-                          {cheatingCount} cảnh báo
-                        </span>
-                      )}
+                          {item}
+                        </Badge>
+                      ))}
                     </div>
                   )}
                 </div>
