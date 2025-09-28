@@ -20,6 +20,7 @@ import { Progress } from '@/components/ui/progress';
 import { getScoreColor, getBandColor } from '@/lib/utils';
 import { useToast } from '@/components/ui/use-toast';
 import { getCandidateDetails, type CandidateDetailSummary, type CandidateAttemptSummary, type CandidateAttemptStatus } from '@/lib/api';
+import { EMPTY_VALUE, formatDetailValue, parseStructuredSummary, toDisplayEntries } from '@/lib/ai/structuredSummary';
 
 const statusConfig: Record<CandidateAttemptStatus | 'not_started', { label: string; className: string }> = {
   not_started: { label: 'Chưa bắt đầu', className: 'bg-slate-100 text-slate-700 border-slate-200' },
@@ -85,54 +86,6 @@ const shortenId = (value: string | null | undefined) => {
   return value.length > 10 ? `${value.slice(0, 10)}…` : value;
 };
 
-const formatNumber = (value: number, maximumFractionDigits = 1) =>
-  new Intl.NumberFormat('vi-VN', { maximumFractionDigits }).format(value);
-
-const formatDetailValue = (value: unknown): string => {
-  if (value == null) {
-    return '—';
-  }
-
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    return formatNumber(value);
-  }
-
-  if (typeof value === 'boolean') {
-    return value ? 'Có' : 'Không';
-  }
-
-  if (typeof value === 'string') {
-    return value;
-  }
-
-  if (Array.isArray(value)) {
-    const items = value
-      .map((item) => formatDetailValue(item))
-      .filter((item) => item && item !== '—');
-    return items.length > 0 ? items.join(', ') : '—';
-  }
-
-  if (value && typeof value === 'object') {
-    const entries = Object.entries(value as Record<string, unknown>)
-      .map(([key, nested]) => `${key}: ${formatDetailValue(nested)}`)
-      .filter((entry) => entry && !entry.endsWith(': —'));
-    return entries.length > 0 ? entries.join('; ') : '—';
-  }
-
-  return String(value);
-};
-
-const toDisplayEntries = (input?: Record<string, unknown> | null) => {
-  if (!input) {
-    return [] as Array<{ key: string; value: string }>;
-  }
-
-  return Object.entries(input).map(([key, value]) => ({
-    key,
-    value: formatDetailValue(value),
-  }));
-};
-
 const normalisePercentage = (value: number) => {
   if (!Number.isFinite(value)) {
     return 0;
@@ -178,6 +131,10 @@ export const CandidateDetail = ({ candidateId }: CandidateDetailProps) => {
   const analysisCompletedAt = aiInsights?.analysisCompletedAt ? formatDate(aiInsights.analysisCompletedAt) : null;
   const insightLocale = aiInsights?.insightLocale ?? null;
   const insightVersion = aiInsights?.insightVersion ?? null;
+  const { plainText: plainSummaryText, sections: structuredSummarySections } = useMemo(
+    () => parseStructuredSummary(aiInsights?.summary ?? null),
+    [aiInsights?.summary],
+  );
   const attemptHistory = candidate?.attempts ?? (attempt ? [attempt] : []);
   const previousAttempts = attemptHistory.slice(1);
   const cheatingEvents = attempt?.cheatingEvents ?? [];
@@ -243,17 +200,17 @@ export const CandidateDetail = ({ candidateId }: CandidateDetailProps) => {
   }, [aiInsights?.roleFit]);
 
   const timeAnalysisEntries = useMemo(
-    () => toDisplayEntries(aiInsights?.timeAnalysis ?? null).filter((entry) => entry.value && entry.value !== '—'),
+    () => toDisplayEntries(aiInsights?.timeAnalysis ?? null).filter((entry) => entry.value && entry.value !== EMPTY_VALUE),
     [aiInsights?.timeAnalysis],
   );
 
   const cheatingSummaryEntries = useMemo(
-    () => toDisplayEntries(aiInsights?.cheatingSummary ?? null).filter((entry) => entry.value && entry.value !== '—'),
+    () => toDisplayEntries(aiInsights?.cheatingSummary ?? null).filter((entry) => entry.value && entry.value !== EMPTY_VALUE),
     [aiInsights?.cheatingSummary],
   );
 
   const personalityTraitEntries = useMemo(
-    () => toDisplayEntries(aiInsights?.personalityTraits ?? null).filter((entry) => entry.value && entry.value !== '—'),
+    () => toDisplayEntries(aiInsights?.personalityTraits ?? null).filter((entry) => entry.value && entry.value !== EMPTY_VALUE),
     [aiInsights?.personalityTraits],
   );
 
@@ -404,22 +361,70 @@ export const CandidateDetail = ({ candidateId }: CandidateDetailProps) => {
 
         {aiInsights && (
           <>
-            {(aiInsights.summary || recommendedRoles.length > 0) && (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                {aiInsights.summary && (
-                  <div className="bg-muted/30 border border-border/60 rounded-2xl p-4 space-y-2">
+            {(structuredSummarySections.length > 0 || plainSummaryText || recommendedRoles.length > 0) && (
+              <div className="grid grid-cols-1 gap-4 lg:[grid-template-columns:minmax(0,1.75fr)_minmax(0,1fr)]">
+                {(structuredSummarySections.length > 0 || plainSummaryText) && (
+                  <div className="bg-muted/30 border border-border/60 rounded-2xl p-5 space-y-4 h-full flex flex-col">
                     <h3 className="font-semibold text-foreground flex items-center gap-2">
                       <User className="w-4 h-4" />
                       Tổng quan AI
                     </h3>
-                    <p className="text-sm text-muted-foreground leading-relaxed">{aiInsights.summary}</p>
-                    {(analysisCompletedAt || aiInsights.model || insightLocale || insightVersion) && (
+                    {structuredSummarySections.length > 0 && (
+                    <div className="grow min-h-0">
+                      <div className="max-h-[420px] overflow-y-auto pr-1 min-h-0">
+                        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+                          {structuredSummarySections.map((section, index) => {
+                            const sectionKey = section.id ? `${section.id}-${index}` : `summary-section-${index}`;
+                            return (
+                              <div
+                                key={sectionKey}
+                                className="flex h-full flex-col gap-3 rounded-xl border border-border/40 bg-background px-4 py-3 shadow-sm"
+                              >
+                                <div className="space-y-1">
+                                  <span className="text-sm font-semibold text-foreground">{section.title}</span>
+                                  {section.description && (
+                                    <p className="text-sm text-muted-foreground leading-relaxed">{section.description}</p>
+                                  )}
+                                </div>
+                                {section.bullets && section.bullets.length > 0 && (
+                                  <ul className="space-y-1 text-sm text-muted-foreground list-disc list-inside">
+                                    {section.bullets.map((item, itemIndex) => (
+                                      <li key={`${sectionKey}-bullet-${itemIndex}`}>{item}</li>
+                                    ))}
+                                  </ul>
+                                )}
+                                {section.content && section.content.length > 0 && (
+                                  <dl className="grid grid-cols-1 gap-2 text-xs sm:grid-cols-2">
+                                    {section.content.map((entry, entryIndex) => (
+                                      <div
+                                        key={`${sectionKey}-entry-${entryIndex}`}
+                                        className="flex flex-col rounded-lg bg-muted/40 px-3 py-2"
+                                      >
+                                        <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                                          {entry.label}
+                                        </dt>
+                                        <dd className="text-sm font-semibold text-foreground">{entry.value}</dd>
+                                      </div>
+                                    ))}
+                                  </dl>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                                      {plainSummaryText && (
+                      <p className="text-sm text-muted-foreground leading-relaxed">{plainSummaryText}</p>
+                    )}
+                    {(analysisCompletedAt || aiInsights?.model || insightLocale || insightVersion) && (
                       <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
                         {analysisCompletedAt && <span>Phân tích lúc: {analysisCompletedAt}</span>}
-                        {aiInsights.model && (
+                        {aiInsights?.model && (
                           <span>
-                            Model: {aiInsights.model}
-                            {aiInsights.version ? ` (${aiInsights.version})` : ''}
+                            Model: {aiInsights?.model}
+                            {aiInsights?.version ? ` (${aiInsights?.version})` : ''}
                           </span>
                         )}
                         {insightVersion && <span>Bản insight: {insightVersion}</span>}

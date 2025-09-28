@@ -19,6 +19,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { CandidateDetail } from '@/components/CandidateDetail';
 import { getCandidates, type CandidateSummary, type CandidateAttemptSummary, type CandidateAttemptStatus } from '@/lib/api';
+import { EMPTY_VALUE, parseStructuredSummary } from '@/lib/ai/structuredSummary';
 import { getBandColor, getScoreColor } from '@/lib/utils';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
@@ -280,7 +281,17 @@ export const CandidateList = () => {
             const attemptStatus = attempt?.status ?? 'not_started';
             const overallScore = candidate.aiInsights?.overallScore ?? null;
             const recommendedRole = candidate.aiInsights?.recommendedRoles?.[0] ?? null;
-            const summaryHighlight = candidate.aiInsights?.summary ?? null;
+            const { sections: summarySections, plainText: summaryPlainText } = parseStructuredSummary(
+              candidate.aiInsights?.summary ?? null,
+            );
+            const summaryPreviewSections = summarySections
+              .filter((section) => {
+                const hasDescription = section.description && section.description !== EMPTY_VALUE;
+                const hasBullets = section.bullets && section.bullets.some((item) => item && item !== EMPTY_VALUE);
+                const hasContent = section.content && section.content.some((entry) => entry.value && entry.value !== EMPTY_VALUE);
+                return hasDescription || hasBullets || hasContent;
+              })
+              .slice(0, 2);
             const progressPercent = roundProgress(attempt);
             const progressLabel = formatProgressLabel(attempt);
             const startedAt = attempt?.startedAt ? formatDate(attempt.startedAt, { dateStyle: 'short' }) : null;
@@ -372,10 +383,56 @@ export const CandidateList = () => {
                             </div>
                           )}
                         </div>
-                        {summaryHighlight && (
-                          <p className="text-sm text-muted-foreground leading-relaxed max-h-16 overflow-hidden">
-                            {summaryHighlight}
-                          </p>
+                        {(summaryPreviewSections.length > 0 || summaryPlainText) && (
+                          <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                            {summaryPreviewSections.map((section, index) => {
+                              const sectionKey = section.id ? `${section.id}-${index}` : `candidate-summary-${index}`;
+                              const sectionTitle = section.title && section.title !== EMPTY_VALUE ? section.title : 'Tổng quan';
+                              const bulletItems = section.bullets
+                                ?.filter((item) => item && item !== EMPTY_VALUE)
+                                ?.slice(0, 3) ?? [];
+                              const contentChips = section.content
+                                ?.filter((entry) => entry.value && entry.value !== EMPTY_VALUE)
+                                ?.slice(0, 3) ?? [];
+                              return (
+                                <div
+                                  key={sectionKey}
+                                  className="rounded-xl border border-border/40 bg-muted/30 px-3 py-3 shadow-sm"
+                                >
+                                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                                    {sectionTitle}
+                                  </p>
+                                  {section.description && section.description !== EMPTY_VALUE && (
+                                    <p className="mt-1 text-sm text-muted-foreground leading-relaxed">{section.description}</p>
+                                  )}
+                                  {bulletItems.length > 0 && (
+                                    <ul className="mt-2 space-y-1 text-xs text-muted-foreground list-disc list-inside">
+                                      {bulletItems.map((item, bulletIndex) => (
+                                        <li key={`${sectionKey}-bullet-${bulletIndex}`}>{item}</li>
+                                      ))}
+                                    </ul>
+                                  )}
+                                  {contentChips.length > 0 && (
+                                    <div className="mt-2 flex flex-wrap gap-2">
+                                      {contentChips.map((entry, chipIndex) => (
+                                        <span
+                                          key={`${sectionKey}-chip-${chipIndex}`}
+                                          className="rounded-full bg-background px-2 py-1 text-xs font-medium text-foreground shadow-sm"
+                                        >
+                                          {entry.label}: {entry.value}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                            {summaryPlainText && (
+                              <p className="md:col-span-2 rounded-xl border border-border/40 bg-muted/20 px-3 py-3 text-sm text-muted-foreground leading-relaxed">
+                                {summaryPlainText}
+                              </p>
+                            )}
+                          </div>
                         )}
                       </div>
                     </div>
