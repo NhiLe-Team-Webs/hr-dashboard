@@ -361,95 +361,61 @@ export const CandidateDetail = ({ candidateId }: CandidateDetailProps) => {
 
         {aiInsights && (
           <>
-            {(structuredSummarySections.length > 0 || plainSummaryText || recommendedRoles.length > 0) && (
-              <div className="grid grid-cols-1 gap-4 lg:[grid-template-columns:minmax(0,1.75fr)_minmax(0,1fr)]">
-                {(structuredSummarySections.length > 0 || plainSummaryText) && (
-                  <div className="bg-muted/30 border border-border/60 rounded-2xl p-5 space-y-4 h-full flex flex-col">
-                    <h3 className="font-semibold text-foreground flex items-center gap-2">
-                      <User className="w-4 h-4" />
-                      Tổng quan AI
-                    </h3>
-                    {structuredSummarySections.length > 0 && (
-                    <div className="grow min-h-0">
-                      <div className="max-h-[420px] overflow-y-auto pr-1 min-h-0">
-                        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-                          {structuredSummarySections.map((section, index) => {
-                            const sectionKey = section.id ? `${section.id}-${index}` : `summary-section-${index}`;
-                            return (
-                              <div
-                                key={sectionKey}
-                                className="flex h-full flex-col gap-3 rounded-xl border border-border/40 bg-background px-4 py-3 shadow-sm"
-                              >
-                                <div className="space-y-1">
-                                  <span className="text-sm font-semibold text-foreground">{section.title}</span>
-                                  {section.description && (
-                                    <p className="text-sm text-muted-foreground leading-relaxed">{section.description}</p>
-                                  )}
-                                </div>
-                                {section.bullets && section.bullets.length > 0 && (
-                                  <ul className="space-y-1 text-sm text-muted-foreground list-disc list-inside">
-                                    {section.bullets.map((item, itemIndex) => (
-                                      <li key={`${sectionKey}-bullet-${itemIndex}`}>{item}</li>
-                                    ))}
-                                  </ul>
-                                )}
-                                {section.content && section.content.length > 0 && (
-                                  <dl className="grid grid-cols-1 gap-2 text-xs sm:grid-cols-2">
-                                    {section.content.map((entry, entryIndex) => (
-                                      <div
-                                        key={`${sectionKey}-entry-${entryIndex}`}
-                                        className="flex flex-col rounded-lg bg-muted/40 px-3 py-2"
-                                      >
-                                        <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                                          {entry.label}
-                                        </dt>
-                                        <dd className="text-sm font-semibold text-foreground">{entry.value}</dd>
-                                      </div>
-                                    ))}
-                                  </dl>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                                      {plainSummaryText && (
-                      <p className="text-sm text-muted-foreground leading-relaxed">{plainSummaryText}</p>
-                    )}
-                    {(analysisCompletedAt || aiInsights?.model || insightLocale || insightVersion) && (
-                      <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
-                        {analysisCompletedAt && <span>Phân tích lúc: {analysisCompletedAt}</span>}
-                        {aiInsights?.model && (
-                          <span>
-                            Model: {aiInsights?.model}
-                            {aiInsights?.version ? ` (${aiInsights?.version})` : ''}
-                          </span>
-                        )}
-                        {insightVersion && <span>Bản insight: {insightVersion}</span>}
-                        {insightLocale && <span>Ngôn ngữ: {insightLocale}</span>}
-                      </div>
+            {structuredSummarySections.map((section, index) => {
+              const sectionKey = section.id
+                ? `${section.id}-${index}`
+                : `summary-section-${index}`;
+
+              return (
+                <div
+                  key={sectionKey}
+                  className="flex flex-col gap-3 rounded-xl border border-border/40 bg-background px-4 py-3 shadow-sm min-w-[220px]"
+                >
+                  <div className="space-y-1">
+                    <span className="text-sm font-semibold text-foreground">
+                      {section.title}
+                    </span>
+                    {section.description && (
+                      <p className="text-sm text-muted-foreground leading-relaxed whitespace-normal break-words">
+                        {section.description}
+                      </p>
                     )}
                   </div>
-                )}
-                {recommendedRoles.length > 0 && (
-                  <div className="bg-muted/30 border border-border/60 rounded-2xl p-4 space-y-2">
-                    <h3 className="font-semibold text-foreground flex items-center gap-2">
-                      <Target className="w-4 h-4" />
-                      Vai trò gợi ý
-                    </h3>
-                    <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
-                      {recommendedRoles.map((role) => (
-                        <li key={role} className="text-foreground font-medium">
-                          {role}
+
+                  {section.bullets && section.bullets.length > 0 && (
+                    <ul className="space-y-1 text-sm text-muted-foreground list-disc list-inside">
+                      {section.bullets.map((item, itemIndex) => (
+                        <li
+                          key={`${sectionKey}-bullet-${itemIndex}`}
+                          className="break-words"
+                        >
+                          {item}
                         </li>
                       ))}
                     </ul>
-                  </div>
-                )}
-              </div>
-            )}
+                  )}
+
+                  {section.content && section.content.length > 0 && (
+                    <dl className="grid grid-cols-1 gap-2 text-xs sm:grid-cols-2">
+                      {section.content.map((entry, entryIndex) => (
+                        <div
+                          key={`${sectionKey}-entry-${entryIndex}`}
+                          className="flex flex-col rounded-lg bg-muted/40 px-3 py-2"
+                        >
+                          <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                            {entry.label}
+                          </dt>
+                          <dd className="text-sm font-semibold text-foreground break-words">
+                            {entry.value}
+                          </dd>
+                        </div>
+                      ))}
+                    </dl>
+                  )}
+                </div>
+              );
+            })}
+
             {(strengths.length > 0 || weaknesses.length > 0 || developmentSuggestions.length > 0) && (
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                 {strengths.length > 0 && (
