@@ -15,6 +15,7 @@ export interface CandidateAttemptSummary {
   submittedAt?: string | null;
   completedAt?: string | null;
   lastActivityAt?: string | null;
+  createdAt?: string | null;
   durationSeconds?: number | null;
   averageSecondsPerQuestion?: number | null;
   questionTimings?: Record<string, number> | null;
@@ -22,6 +23,9 @@ export interface CandidateAttemptSummary {
   cheatingEvents?: CandidateCheatingEvent[] | null;
   aiStatus?: string | null;
   lastAiError?: string | null;
+  assessmentId?: string | null;
+  assessmentTitle?: string | null;
+  assessmentRole?: string | null;
 }
 
 export interface CandidateAIInsights {
@@ -36,6 +40,13 @@ export interface CandidateAIInsights {
   model?: string | null;
   version?: string | null;
   analysisCompletedAt?: string | null;
+  createdAt?: string | null;
+  insightLocale?: string | null;
+  insightVersion?: string | null;
+  roleFit?: Record<string, number | null>;
+  timeAnalysis?: Record<string, unknown> | null;
+  cheatingSummary?: Record<string, unknown> | null;
+  personalityTraits?: Record<string, unknown> | null;
 }
 
 export interface CandidateCheatingEvent {

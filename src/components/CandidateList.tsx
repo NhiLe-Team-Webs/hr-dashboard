@@ -1,5 +1,19 @@
 ﻿import { useEffect, useMemo, useState } from 'react';
-import { Plus, Search, Calendar, UserCheck, Mail, Send, AlertCircle, Clock, Target } from 'lucide-react';
+import {
+  Plus,
+  Search,
+  Calendar,
+  UserCheck,
+  Mail,
+  Send,
+  AlertCircle,
+  Clock,
+  Target,
+  AlertTriangle,
+  Briefcase,
+  Sparkles,
+  Timer,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -45,6 +59,32 @@ const formatProgressLabel = (attempt?: CandidateAttemptSummary) => {
 
 const roundProgress = (attempt?: CandidateAttemptSummary) =>
   attempt ? Math.round(attempt.progressPercent) : 0;
+
+const formatDurationLabel = (seconds?: number | null) => {
+  if (seconds == null || seconds <= 0) {
+    return null;
+  }
+
+  const totalSeconds = Math.max(0, Math.round(seconds));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const secs = totalSeconds % 60;
+
+  const parts: string[] = [];
+  if (hours > 0) {
+    parts.push(`${hours} giờ`);
+  }
+  if (minutes > 0) {
+    parts.push(`${minutes} phút`);
+  }
+  if (parts.length === 0 && secs > 0) {
+    parts.push(`${secs} giây`);
+  } else if (hours === 0 && minutes > 0 && secs > 0) {
+    parts.push(`${secs} giây`);
+  }
+
+  return parts.join(' ');
+};
 
 export const CandidateList = () => {
   const { toast } = useToast();
@@ -248,6 +288,15 @@ export const CandidateList = () => {
             const progressPercent = roundProgress(attempt);
             const progressLabel = formatProgressLabel(attempt);
             const startedAt = attempt?.startedAt ? formatDate(attempt.startedAt, { dateStyle: 'short' }) : null;
+            const analysisCompletedAt = candidate.aiInsights?.analysisCompletedAt
+              ? formatDate(candidate.aiInsights.analysisCompletedAt, { dateStyle: 'short', timeStyle: 'short' })
+              : null;
+            const durationLabel = formatDurationLabel(attempt?.durationSeconds);
+            const aiStatusLabel = attempt?.aiStatus ?? (attemptStatus === 'awaiting_ai' ? 'Chờ đánh giá AI' : null);
+            const cheatingCount = attempt?.cheatingCount ?? 0;
+            const hasCheatingAlerts = cheatingCount > 0;
+            const assessmentTitle = attempt?.assessmentTitle ?? null;
+            const assessmentRole = attempt?.assessmentRole ?? null;
 
             return (
               <Card
@@ -300,8 +349,23 @@ export const CandidateList = () => {
                         </div>
                         {recommendedRole && (
                           <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                            <Sparkles className="w-3 h-3" />
+                            Gợi ý: <span className="text-foreground font-medium">{recommendedRole}</span>
+                          </div>
+                        )}
+                        {assessmentTitle && (
+                          <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                            <Briefcase className="w-3 h-3" />
+                            Bài đánh giá:{' '}
+                            <span className="text-foreground font-medium truncate">
+                              {assessmentTitle}
+                            </span>
+                          </div>
+                        )}
+                        {assessmentRole && (
+                          <div className="flex items-center gap-1 text-sm text-muted-foreground">
                             <Target className="w-3 h-3" />
-                            Goi y: <span className="text-foreground font-medium">{recommendedRole}</span>
+                            Vị trí mục tiêu: <span className="text-foreground font-medium">{assessmentRole}</span>
                           </div>
                         )}
                         {truncatedSummary && (
@@ -330,6 +394,12 @@ export const CandidateList = () => {
                             )}
                           </div>
                           {getStatusBadge(attemptStatus)}
+                          {analysisCompletedAt && (
+                            <div className="text-xs text-muted-foreground flex items-center gap-1 justify-center">
+                              <Calendar className="w-3 h-3" />
+                              Chấm AI: {analysisCompletedAt}
+                            </div>
+                          )}
                         </div>
                       ) : (
                         <div className="text-right space-y-1">
@@ -343,6 +413,28 @@ export const CandidateList = () => {
                       )}
                     </div>
                   </div>
+                  {(aiStatusLabel || durationLabel || hasCheatingAlerts) && (
+                    <div className="mt-4 flex flex-wrap gap-2 text-xs">
+                      {aiStatusLabel && (
+                        <span className="inline-flex items-center gap-1 rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-sky-700">
+                          <Sparkles className="w-3 h-3" />
+                          {aiStatusLabel}
+                        </span>
+                      )}
+                      {durationLabel && (
+                        <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-slate-700">
+                          <Timer className="w-3 h-3" />
+                          {durationLabel}
+                        </span>
+                      )}
+                      {hasCheatingAlerts && (
+                        <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-amber-700">
+                          <AlertTriangle className="w-3 h-3" />
+                          {cheatingCount} cảnh báo
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
               </Card>
             );

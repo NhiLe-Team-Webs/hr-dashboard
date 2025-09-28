@@ -13,9 +13,19 @@ export interface SupabaseResultRow {
   analysis_model: string | null;
   analysis_version: string | null;
   analysis_completed_at: string | null;
+  created_at?: string | null;
+  role_fit?: Record<string, unknown> | null;
+  time_analysis?: Record<string, unknown> | null;
+  cheating_summary?: Record<string, unknown> | null;
+  personality_traits?: Record<string, unknown> | null;
+  insight_locale?: string | null;
+  insight_version?: string | null;
 }
 
-const normaliseSkillScores = (input: unknown): Record<string, number | null> | undefined => {
+const isPlainObject = (input: unknown): input is Record<string, unknown> =>
+  Boolean(input) && typeof input === 'object' && !Array.isArray(input);
+
+const normaliseNumericRecord = (input: unknown): Record<string, number | null> | undefined => {
   if (!input || typeof input !== 'object' || Array.isArray(input)) {
     return undefined;
   }
@@ -24,6 +34,15 @@ const normaliseSkillScores = (input: unknown): Record<string, number | null> | u
     (acc, [key, value]) => {
       if (value === null) {
         acc[key] = null;
+        return acc;
+      }
+
+      if (value && typeof value === 'object' && 'score' in (value as Record<string, unknown>)) {
+        const rawScore = (value as Record<string, unknown>).score;
+        const numericScore = typeof rawScore === 'number' ? rawScore : Number(rawScore);
+        if (!Number.isNaN(numericScore) && Number.isFinite(numericScore)) {
+          acc[key] = numericScore;
+        }
         return acc;
       }
 
@@ -44,6 +63,8 @@ const normaliseSkillScores = (input: unknown): Record<string, number | null> | u
 
   return Object.keys(entries).length > 0 ? entries : undefined;
 };
+
+const normaliseSkillScores = normaliseNumericRecord;
 
 const normaliseStringList = (input: unknown): string[] | undefined => {
   if (!input) {
@@ -127,12 +148,28 @@ export const mapAiInsights = (rows?: SupabaseResultRow[] | null): CandidateAIIns
     return undefined;
   }
 
-  const latest = rows[0];
+  const sortedRows = [...rows].sort((a, b) => {
+    const getTimestamp = (value?: string | null) => (value ? Date.parse(value) : Number.NEGATIVE_INFINITY);
+    const bCompleted = getTimestamp(b.analysis_completed_at);
+    const aCompleted = getTimestamp(a.analysis_completed_at);
+    if (bCompleted !== aCompleted) {
+      return bCompleted - aCompleted;
+    }
+    const bCreated = getTimestamp(b.created_at);
+    const aCreated = getTimestamp(a.created_at);
+    return bCreated - aCreated;
+  });
+
+  const latest = sortedRows[0];
   const skillScores = normaliseSkillScores(latest.skill_scores);
   const strengths = normaliseStringList(latest.strengths);
   const weaknesses = normaliseStringList(latest.weaknesses);
   const recommendedRoles = normaliseStringList(latest.recommended_roles);
   const developmentSuggestions = normaliseStringList(latest.development_suggestions);
+  const roleFit = normaliseNumericRecord(latest.role_fit);
+  const timeAnalysis = isPlainObject(latest.time_analysis) ? latest.time_analysis : undefined;
+  const cheatingSummary = isPlainObject(latest.cheating_summary) ? latest.cheating_summary : undefined;
+  const personalityTraits = isPlainObject(latest.personality_traits) ? latest.personality_traits : undefined;
   const summary = extractSummaryText(latest);
 
   const hasData =
@@ -142,6 +179,10 @@ export const mapAiInsights = (rows?: SupabaseResultRow[] | null): CandidateAIIns
     (recommendedRoles && recommendedRoles.length > 0) ||
     (developmentSuggestions && developmentSuggestions.length > 0) ||
     (skillScores && Object.keys(skillScores).length > 0) ||
+    (roleFit && Object.keys(roleFit).length > 0) ||
+    (timeAnalysis && Object.keys(timeAnalysis).length > 0) ||
+    (cheatingSummary && Object.keys(cheatingSummary).length > 0) ||
+    (personalityTraits && Object.keys(personalityTraits).length > 0) ||
     latest.overall_score != null ||
     latest.analysis_model ||
     latest.analysis_version ||
@@ -163,5 +204,12 @@ export const mapAiInsights = (rows?: SupabaseResultRow[] | null): CandidateAIIns
     model: latest.analysis_model ?? undefined,
     version: latest.analysis_version ?? undefined,
     analysisCompletedAt: latest.analysis_completed_at ?? undefined,
+    createdAt: latest.created_at ?? undefined,
+    insightLocale: latest.insight_locale ?? undefined,
+    insightVersion: latest.insight_version ?? undefined,
+    roleFit,
+    timeAnalysis: timeAnalysis ?? undefined,
+    cheatingSummary: cheatingSummary ?? undefined,
+    personalityTraits: personalityTraits ?? undefined,
   };
 };

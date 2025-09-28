@@ -28,7 +28,23 @@ export const Analytics = () => {
   const totalCandidates = candidates.length;
   const completionRate = totalCandidates > 0 ? (completedCandidates.length / totalCandidates) * 100 : 0;
 
-  const awaitingAiCount = candidates.filter((candidate) => candidate.status === 'awaiting_ai').length;
+  const statusCounts = candidates.reduce<Record<CandidateAttemptStatus, number>>(
+    (acc, candidate) => {
+      acc[candidate.status] = (acc[candidate.status] ?? 0) + 1;
+      return acc;
+    },
+    {
+      not_started: 0,
+      in_progress: 0,
+      awaiting_ai: 0,
+      completed: 0,
+    },
+  );
+
+  const awaitingAiCount = statusCounts.awaiting_ai;
+  const inProgressCount = statusCounts.in_progress;
+  const notStartedCount = statusCounts.not_started;
+  const completedCount = statusCounts.completed;
 
   const overallScores = completedCandidates
     .map((candidate) => candidate.aiInsights?.overallScore)
@@ -186,15 +202,28 @@ export const Analytics = () => {
             <p className="text-4xl font-bold text-foreground">{averageScore != null ? averageScore.toFixed(0) : 'N/A'}</p>
           </Card>
           <Card className="p-6 flex flex-col bg-card border border-border rounded-3xl shadow-lg">
-            <h3 className="text-muted-foreground font-medium mb-2">Cho AI cham</h3>
+            <h3 className="text-muted-foreground font-medium mb-1">Trạng thái đánh giá</h3>
             <p className="text-4xl font-bold text-foreground">{awaitingAiCount}</p>
-            <div className="mt-3 text-sm text-muted-foreground space-y-1">
+            <p className="text-sm text-muted-foreground">đang chờ AI chấm</p>
+            <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-sm text-muted-foreground">
+              <div>
+                Chưa bắt đầu:{' '}
+                <span className="font-semibold text-foreground">{notStartedCount}</span>
+              </div>
+              <div>
+                Đang làm:{' '}
+                <span className="font-semibold text-foreground">{inProgressCount}</span>
+              </div>
+              <div>
+                Hoàn thành:{' '}
+                <span className="font-semibold text-foreground">{completedCount}</span>
+              </div>
               <div>
                 A Player:{' '}
                 <span className="font-semibold text-foreground">{aPlayers}</span>
               </div>
-              <div>
-                Top goi y:{' '}
+              <div className="col-span-2">
+                Top gợi ý:{' '}
                 <span className="font-semibold text-foreground">{topRecommendedRole ?? 'N/A'}</span>
               </div>
             </div>
