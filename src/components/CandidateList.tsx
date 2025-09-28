@@ -96,6 +96,7 @@ export const CandidateList = () => {
   const [emailValidationError, setEmailValidationError] = useState('');
   const [inviteMessage, setInviteMessage] = useState('Chào bạn, mời bạn tham gia bài đánh giá năng lực của chúng tôi.');
   const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null);
+  const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
@@ -103,9 +104,6 @@ export const CandidateList = () => {
       try {
         const data = await getCandidates();
         setCandidates(data);
-        if (data.length > 0) {
-          setSelectedCandidateId(data[0].id);
-        }
       } catch (err) {
         setError('Không thể tải danh sách ứng viên.');
         console.error(err);
@@ -134,6 +132,12 @@ export const CandidateList = () => {
   }, [candidates, searchTerm]);
 
   const selectedCandidate = candidates.find((c) => c.id === selectedCandidateId) ?? null;
+  const isDetailDialogOpen = isDetailOpen && Boolean(selectedCandidate);
+
+  const handleCandidateClick = (candidateId: string) => {
+    setSelectedCandidateId(candidateId);
+    setIsDetailOpen(true);
+  };
 
   const validateEmailList = (emailText: string) => {
     if (!emailText.trim()) {
@@ -274,8 +278,8 @@ export const CandidateList = () => {
         </div>
       </Card>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-4">
+      {filteredCandidates.length > 0 ? (
+        <div className="space-y-4">
           {filteredCandidates.map((candidate) => {
             const attempt = candidate.attempt;
             const attemptStatus = attempt?.status ?? 'not_started';
@@ -317,7 +321,7 @@ export const CandidateList = () => {
                     ? 'ring-2 ring-primary/50 shadow-lg'
                     : 'hover:shadow-md hover:scale-[1.02]'
                 }`}
-                onClick={() => setSelectedCandidateId(candidate.id)}
+                onClick={() => handleCandidateClick(candidate.id)}
               >
                 <div className="p-6 space-y-4">
                   <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
@@ -529,28 +533,27 @@ export const CandidateList = () => {
               </Card>
             );
           })}
-
-          {filteredCandidates.length === 0 && (
-            <Card className="p-12 text-center">
-              <UserCheck className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-              <p className="text-muted-foreground">Không tìm thấy ứng viên</p>
-            </Card>
-          )}
         </div>
+      ) : (
+        <Card className="p-12 text-center">
+          <UserCheck className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+          <p className="text-muted-foreground">Không tìm thấy ứng viên</p>
+        </Card>
+      )}
 
-        <div className="lg:col-span-1">
-          <div className="sticky top-6">
-            {selectedCandidate ? (
-              <CandidateDetail candidateId={selectedCandidate.id} />
-            ) : (
-              <Card className="p-8 text-center">
-                <UserCheck className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                <p className="text-muted-foreground">Chọn một ứng viên từ danh sách để xem chi tiết</p>
-              </Card>
-            )}
-          </div>
-        </div>
-      </div>
+      <Dialog
+        open={isDetailDialogOpen}
+        onOpenChange={(open) => {
+          setIsDetailOpen(open);
+          if (!open) {
+            setSelectedCandidateId(null);
+          }
+        }}
+      >
+        <DialogContent className="max-w-5xl w-[95vw] max-h-[90vh] overflow-y-auto">
+          {selectedCandidate && <CandidateDetail candidateId={selectedCandidate.id} />}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
