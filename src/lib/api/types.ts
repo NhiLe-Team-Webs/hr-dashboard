@@ -15,6 +15,13 @@ export interface CandidateAttemptSummary {
   submittedAt?: string | null;
   completedAt?: string | null;
   lastActivityAt?: string | null;
+  durationSeconds?: number | null;
+  averageSecondsPerQuestion?: number | null;
+  questionTimings?: Record<string, number> | null;
+  cheatingCount?: number | null;
+  cheatingEvents?: CandidateCheatingEvent[] | null;
+  aiStatus?: string | null;
+  lastAiError?: string | null;
 }
 
 export interface CandidateAIInsights {
@@ -31,6 +38,13 @@ export interface CandidateAIInsights {
   analysisCompletedAt?: string | null;
 }
 
+export interface CandidateCheatingEvent {
+  questionId?: string | null;
+  type?: string;
+  occurredAt?: string;
+  metadata?: Record<string, unknown>;
+}
+
 export interface CandidateSummary {
   id: string;
   fullName: string | null;
@@ -40,6 +54,7 @@ export interface CandidateSummary {
   avatarChar: string;
   aiInsights?: CandidateAIInsights;
   attempt?: CandidateAttemptSummary;
+  attemptCount?: number;
 }
 
 export interface CandidateDetailSummary extends CandidateSummary {
@@ -48,6 +63,7 @@ export interface CandidateDetailSummary extends CandidateSummary {
   age?: number | null;
   gender?: string | null;
   education?: string | null;
+  attempts?: CandidateAttemptSummary[];
 }
 
 export interface FetchQuestionsParams {
