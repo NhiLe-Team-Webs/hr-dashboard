@@ -1,6 +1,9 @@
 // src/components/Sidebar.tsx
-import { Users, BarChart3, FileText, Layout, Settings, Target } from 'lucide-react';
+import { Users, BarChart3, FileText, Layout, Settings, LogOut, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useAuth } from '@/contexts/AuthContext';
+import { toast } from './ui/use-toast';
 
 const navigationItems = [
     {
@@ -33,20 +36,64 @@ export const Sidebar = () => {
     const navigate = useNavigate();
     const location = useLocation();
     const currentPage = location.pathname.split('/')[1] || 'analytics';
+    const { signOut, user } = useAuth();
+    const [isCollapsed, setIsCollapsed] = useState(false);
+
+    const handleNavigation = (itemId: string) => {
+        if (itemId === 'landing-page') {
+            toast({
+                title: 'Tính năng đang được phát triển',
+                description: 'Chức năng này sẽ sớm được cập nhật.',
+            });
+        } else {
+            navigate(`/${itemId}`);
+        }
+    };
+
+    const handleLogout = async () => {
+        try {
+            await signOut();
+            toast({
+                title: 'Đã đăng xuất',
+                description: 'Bạn đã đăng xuất thành công.',
+            });
+        } catch (error) {
+            toast({
+                title: 'Đăng xuất thất bại',
+                description: 'Đã xảy ra lỗi khi đăng xuất.',
+                variant: 'destructive',
+            });
+        } finally {
+            navigate('/login', { replace: true });
+        }
+    };
 
     return (
-        <aside className="w-64 bg-card border-r border-border flex flex-col min-h-screen">
-            {/* Logo */}
+        <aside className={`${isCollapsed ? 'w-20' : 'w-64'} bg-card border-r border-border flex flex-col min-h-screen transition-all duration-300 relative`}>
+            {/* Toggle Button */}
+            <button
+                onClick={() => setIsCollapsed(!isCollapsed)}
+                className="absolute -right-3 top-6 w-6 h-6 bg-primary rounded-full flex items-center justify-center shadow-lg hover:bg-primary/90 transition-colors z-10"
+                aria-label={isCollapsed ? 'Mở rộng sidebar' : 'Thu gọn sidebar'}
+            >
+                {isCollapsed ? (
+                    <ChevronRight className="w-4 h-4 text-primary-foreground" />
+                ) : (
+                    <ChevronLeft className="w-4 h-4 text-primary-foreground" />
+                )}
+            </button>
+
+            {/* Title */}
             <div className="p-6 border-b border-border">
-                <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-gradient-to-br from-primary to-primary-glow rounded-xl flex items-center justify-center shadow-lg">
-                        <Target className="w-6 h-6 text-primary-foreground" />
+                {!isCollapsed ? (
+                    <h1 className="font-bold text-xl text-foreground tracking-tight">HR DASHBOARD</h1>
+                ) : (
+                    <div className="flex justify-center">
+                        <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
+                            <span className="text-primary-foreground font-bold text-sm">HR</span>
+                        </div>
                     </div>
-                    <div>
-                        <h1 className="font-bold text-lg text-foreground">Team Build Pro</h1>
-                        <p className="text-xs text-muted-foreground">HR Dashboard</p>
-                    </div>
-                </div>
+                )}
             </div>
 
             {/* Navigation */}
@@ -59,7 +106,7 @@ export const Sidebar = () => {
                         return (
                             <button
                                 key={item.id}
-                                onClick={() => navigate(`/${item.id}`)}
+                                onClick={() => handleNavigation(item.id)}
                                 className={`
                                     w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all duration-200
                                     ${isActive 
@@ -67,37 +114,62 @@ export const Sidebar = () => {
                                         : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                                     }
                                 `}
+                                title={isCollapsed ? item.label : ''}
                             >
                                 <Icon className="w-5 h-5 flex-shrink-0" />
-                                <div className="flex-1 min-w-0">
-                                    <div className="font-medium text-sm">{item.label}</div>
-                                    <div className={`text-xs mt-0.5 ${isActive ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>
-                                        {item.description}
+                                {!isCollapsed && (
+                                    <div className="flex-1 min-w-0">
+                                        <div className="font-medium text-sm">{item.label}</div>
+                                        <div className={`text-xs mt-0.5 ${isActive ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>
+                                            {item.description}
+                                        </div>
                                     </div>
-                                </div>
+                                )}
                             </button>
                         );
                     })}
                 </div>
             </nav>
 
-            {/* Settings */}
-            <div className="p-4 border-t border-border">
+            {/* Settings and Logout */}
+            <div className="p-4 border-t border-border space-y-2">
                 <button
-                    onClick={() => navigate('/settings')}
-                    className={`
-                        w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all duration-200
-                        ${currentPage === 'settings'
-                            ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/25'
-                            : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-                        }
-                    `}
+                    onClick={() => {
+                        toast({
+                            title: 'Tính năng đang được phát triển',
+                            description: 'Chức năng này sẽ sớm được cập nhật.',
+                        });
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all duration-200 text-muted-foreground hover:bg-muted hover:text-foreground"
+                    title={isCollapsed ? 'Cài đặt' : ''}
                 >
                     <Settings className="w-5 h-5" />
-                    <div>
-                        <div className="font-medium text-sm">Cài đặt</div>
-                        <div className="text-xs text-muted-foreground">Tùy chỉnh hệ thống</div>
-                    </div>
+                    {!isCollapsed && (
+                        <div>
+                            <div className="font-medium text-sm">Cài đặt</div>
+                            <div className="text-xs text-muted-foreground">Tùy chỉnh hệ thống</div>
+                        </div>
+                    )}
+                </button>
+                
+                <button
+                    type="button"
+                    onClick={handleLogout}
+                    className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all duration-200 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                    aria-label="Đăng xuất"
+                    title={isCollapsed ? 'Đăng xuất' : ''}
+                >
+                    <LogOut className="w-5 h-5" />
+                    {!isCollapsed && (
+                        <div>
+                            <div className="font-medium text-sm">Đăng xuất</div>
+                            {user?.email && (
+                                <div className="text-xs text-muted-foreground truncate max-w-[150px]">
+                                    {user.email}
+                                </div>
+                            )}
+                        </div>
+                    )}
                 </button>
             </div>
         </aside>

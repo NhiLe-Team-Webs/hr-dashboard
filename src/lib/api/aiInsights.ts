@@ -2,7 +2,6 @@
 
 export interface SupabaseResultRow {
   id: string;
-  overall_score: number | null;
   skill_scores: Record<string, unknown> | null;
   strengths: unknown;
   weaknesses: unknown;
@@ -11,10 +10,9 @@ export interface SupabaseResultRow {
   development_suggestions: unknown;
   ai_summary: Record<string, unknown> | null;
   analysis_model: string | null;
-  analysis_version: string | null;
   analysis_completed_at: string | null;
   created_at?: string | null;
-  role_fit?: Record<string, unknown> | null;
+  team_fit?: unknown; 
   time_analysis?: Record<string, unknown> | null;
   cheating_summary?: Record<string, unknown> | null;
   personality_traits?: Record<string, unknown> | null;
@@ -143,7 +141,12 @@ const extractSummaryText = (row: SupabaseResultRow): string | undefined => {
   return undefined;
 };
 
-export const mapAiInsights = (rows?: SupabaseResultRow[] | null): CandidateAIInsights | undefined => {
+interface Team {
+  id: string;
+  name: string;
+}
+
+export const mapAiInsights = (rows?: SupabaseResultRow[] | null, teams?: Team[]): CandidateAIInsights | undefined => {
   if (!rows || rows.length === 0) {
     return undefined;
   }
@@ -166,7 +169,22 @@ export const mapAiInsights = (rows?: SupabaseResultRow[] | null): CandidateAIIns
   const weaknesses = normaliseStringList(latest.weaknesses);
   const recommendedRoles = normaliseStringList(latest.recommended_roles);
   const developmentSuggestions = normaliseStringList(latest.development_suggestions);
-  const roleFit = normaliseNumericRecord(latest.role_fit);
+  
+  // Map team IDs to team names
+  let teamFit: string[] | undefined = undefined;
+  if (latest.team_fit && Array.isArray(latest.team_fit) && teams) {
+    teamFit = latest.team_fit
+      .map(teamId => {
+        const team = teams.find(t => t.id === teamId);
+        return team?.name;
+      })
+      .filter((name): name is string => Boolean(name));
+    
+    if (teamFit.length === 0) {
+      teamFit = undefined;
+    }
+  }
+  
   const timeAnalysis = isPlainObject(latest.time_analysis) ? latest.time_analysis : undefined;
   const cheatingSummary = isPlainObject(latest.cheating_summary) ? latest.cheating_summary : undefined;
   const personalityTraits = isPlainObject(latest.personality_traits) ? latest.personality_traits : undefined;
@@ -179,13 +197,11 @@ export const mapAiInsights = (rows?: SupabaseResultRow[] | null): CandidateAIIns
     (recommendedRoles && recommendedRoles.length > 0) ||
     (developmentSuggestions && developmentSuggestions.length > 0) ||
     (skillScores && Object.keys(skillScores).length > 0) ||
-    (roleFit && Object.keys(roleFit).length > 0) ||
+    (teamFit && teamFit.length > 0) ||
     (timeAnalysis && Object.keys(timeAnalysis).length > 0) ||
     (cheatingSummary && Object.keys(cheatingSummary).length > 0) ||
     (personalityTraits && Object.keys(personalityTraits).length > 0) ||
-    latest.overall_score != null ||
     latest.analysis_model ||
-    latest.analysis_version ||
     latest.analysis_completed_at;
 
   if (!hasData) {
@@ -193,7 +209,6 @@ export const mapAiInsights = (rows?: SupabaseResultRow[] | null): CandidateAIIns
   }
 
   return {
-    overallScore: latest.overall_score ?? undefined,
     skillScores,
     strengths,
     weaknesses,
@@ -202,12 +217,11 @@ export const mapAiInsights = (rows?: SupabaseResultRow[] | null): CandidateAIIns
     developmentSuggestions,
     rawAiSummary: latest.ai_summary ?? null,
     model: latest.analysis_model ?? undefined,
-    version: latest.analysis_version ?? undefined,
     analysisCompletedAt: latest.analysis_completed_at ?? undefined,
     createdAt: latest.created_at ?? undefined,
     insightLocale: latest.insight_locale ?? undefined,
     insightVersion: latest.insight_version ?? undefined,
-    roleFit,
+    teamFit,
     timeAnalysis: timeAnalysis ?? undefined,
     cheatingSummary: cheatingSummary ?? undefined,
     personalityTraits: personalityTraits ?? undefined,

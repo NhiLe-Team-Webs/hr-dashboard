@@ -111,7 +111,7 @@ const QuestionEditor = () => {
   const currentQuestions = questions[selectedRole] || [];
   const roleNames = roles.map((role) => role.name);
 
-useEffect(() => {
+  useEffect(() => {
     if (roles.length === 0) {
       if (selectedRole) {
         setSelectedRole('');
@@ -147,7 +147,7 @@ useEffect(() => {
     setTargetRoleForCreate(selectedRole);
     setIsCreating(true);
   };
-  
+
   const handleSetQuestions = (newQuestions: QuestionsByRole) => {
     setQuestions(newQuestions);
   };
@@ -170,12 +170,12 @@ useEffect(() => {
                     Quản lý vị trí
                   </Button>
                 </DialogTrigger>
-                <RoleManager 
-                  roles={roles} 
-                  questions={questions} 
-                  setRoles={setRoles} 
-                  setQuestions={handleSetQuestions} 
-                  onClose={() => setShowRoleManager(false)} 
+                <RoleManager
+                  roles={roles}
+                  questions={questions}
+                  setRoles={setRoles}
+                  setQuestions={handleSetQuestions}
+                  onClose={() => setShowRoleManager(false)}
                 />
               </Dialog>
               <Button
@@ -234,7 +234,7 @@ useEffect(() => {
                     <SelectContent>
                       {roles.map((role) => {
                         const questionCount = (questions[role.name] || []).length;
-                        const minutes = role.duration ? Math.max(1, Math.round(role.duration / 60)) : 30;
+                        const minutes = role.duration ? Math.max(1, Math.round(role.duration)) : 30;
                         return (
                           <SelectItem key={role.name} value={role.name}>
                             {role.name} ({questionCount} câu hỏi · {minutes} phút)
@@ -260,7 +260,7 @@ useEffect(() => {
             handleStartCreate={handleStartCreate}
             isLoading={isLoadingQuestions}
           />
-          
+
           {/* Create New Question Modal */}
           <Dialog open={isCreating} onOpenChange={setIsCreating}>
             <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">

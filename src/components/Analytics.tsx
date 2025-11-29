@@ -3,8 +3,8 @@ import { useEffect, useRef, useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { getAnalyticsData, type CandidateAIInsights, type CandidateAttemptStatus } from '@/lib/api';
 import Chart from 'chart.js/auto';
+import { Users, TrendingUp, Award, Target, Briefcase, CheckCircle2 } from 'lucide-react';
 
-// Khai báo một interface để đảm bảo type an toàn
 interface CandidateData {
   id: string;
   name: string;
@@ -15,10 +15,12 @@ interface CandidateData {
 }
 
 export const Analytics = () => {
-  const bandChartRef = useRef<HTMLCanvasElement>(null);
+  const skillChartRef = useRef<HTMLCanvasElement>(null);
   const roleChartRef = useRef<HTMLCanvasElement>(null);
-  const bandChartInstance = useRef<Chart | null>(null);
+  const statusChartRef = useRef<HTMLCanvasElement>(null);
+  const skillChartInstance = useRef<Chart | null>(null);
   const roleChartInstance = useRef<Chart | null>(null);
+  const statusChartInstance = useRef<Chart | null>(null);
 
   const [candidates, setCandidates] = useState<CandidateData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -41,34 +43,52 @@ export const Analytics = () => {
     },
   );
 
-  const awaitingAiCount = statusCounts.awaiting_ai;
-  const inProgressCount = statusCounts.in_progress;
-  const notStartedCount = statusCounts.not_started;
-  const completedCount = statusCounts.completed;
+  // Aggregate skill scores across all completed candidates
+  const skillScoreAggregates: Record<string, { total: number; count: number }> = {};
+  completedCandidates.forEach((candidate) => {
+    const skillScores = candidate.aiInsights?.skillScores;
+    if (skillScores) {
+      Object.entries(skillScores).forEach(([skillName, score]) => {
+        if (score != null) {
+          if (!skillScoreAggregates[skillName]) {
+            skillScoreAggregates[skillName] = { total: 0, count: 0 };
+          }
+          skillScoreAggregates[skillName].total += score;
+          skillScoreAggregates[skillName].count += 1;
+        }
+      });
+    }
+  });
 
-  const overallScores = completedCandidates
-    .map((candidate) => candidate.aiInsights?.overallScore)
-    .filter((value): value is number => typeof value === 'number' && Number.isFinite(value));
+  const averageSkillScores = Object.entries(skillScoreAggregates)
+    .map(([name, { total, count }]) => ({
+      name,
+      average: total / count,
+    }))
+    .sort((a, b) => b.average - a.average)
+    .slice(0, 6); // Top 6 skills
 
-  const averageScore = overallScores.length > 0
-    ? overallScores.reduce((acc, value) => acc + value, 0) / overallScores.length
-    : null;
-
-  const recommendedRoleCounts = completedCandidates.reduce<Record<string, number>>((acc, candidate) => {
-    candidate.aiInsights?.recommendedRoles?.forEach((roleName) => {
-      const key = roleName.trim();
-      if (!key) {
-        return;
-      }
-      acc[key] = (acc[key] ?? 0) + 1;
+  // Aggregate strengths
+  const strengthCounts: Record<string, number> = {};
+  completedCandidates.forEach((candidate) => {
+    candidate.aiInsights?.strengths?.forEach((strength) => {
+      strengthCounts[strength] = (strengthCounts[strength] ?? 0) + 1;
     });
-    return acc;
-  }, {});
+  });
+  const topStrengths = Object.entries(strengthCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5);
 
-  const topRecommendedRole = Object.entries(recommendedRoleCounts)
-    .sort((a, b) => b[1] - a[1])[0]?.[0];
-
-  const aPlayers = completedCandidates.filter((candidate) => candidate.band === 'A').length;
+  // Aggregate recommended roles
+  const recommendedRoleCounts: Record<string, number> = {};
+  completedCandidates.forEach((candidate) => {
+    candidate.aiInsights?.recommendedRoles?.forEach((role) => {
+      recommendedRoleCounts[role] = (recommendedRoleCounts[role] ?? 0) + 1;
+    });
+  });
+  const topRecommendedRoles = Object.entries(recommendedRoleCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -87,66 +107,99 @@ export const Analytics = () => {
 
   useEffect(() => {
     // Cleanup existing charts
-    if (bandChartInstance.current) {
-      bandChartInstance.current.destroy();
+    if (skillChartInstance.current) {
+      skillChartInstance.current.destroy();
     }
     if (roleChartInstance.current) {
       roleChartInstance.current.destroy();
     }
+    if (statusChartInstance.current) {
+      statusChartInstance.current.destroy();
+    }
 
-    // Band Chart
-    if (bandChartRef.current) {
-      const bandCounts = { A: 0, B: 0, C: 0 };
-      completedCandidates.forEach(c => {
-        if (c.band && Object.prototype.hasOwnProperty.call(bandCounts, c.band)) {
-          bandCounts[c.band as keyof typeof bandCounts]++;
-        }
-      });
-
-      const bandCtx = bandChartRef.current.getContext('2d');
-      if (bandCtx) {
-        bandChartInstance.current = new Chart(bandCtx, {
+    // Skill Scores Chart
+    if (skillChartRef.current && averageSkillScores.length > 0) {
+      const ctx = skillChartRef.current.getContext('2d');
+      if (ctx) {
+        skillChartInstance.current = new Chart(ctx, {
           type: 'bar',
           data: {
-            labels: ['A Player', 'B Player', 'C Player'],
+            labels: averageSkillScores.map(s => s.name),
             datasets: [{
-              label: 'Số lượng ứng viên',
-              data: Object.values(bandCounts),
-              backgroundColor: ['#2563eb', '#f97316', '#ef4444'],
+              label: 'Điểm trung bình',
+              data: averageSkillScores.map(s => s.average),
+              backgroundColor: '#10b981',
               borderRadius: 8,
             }]
           },
           options: {
             responsive: true,
             maintainAspectRatio: false,
+            indexAxis: 'y',
             plugins: {
               legend: { display: false }
             },
             scales: {
-              y: { beginAtZero: true }
+              x: { 
+                beginAtZero: true,
+                max: 100,
+                ticks: {
+                  callback: (value) => `${value}%`
+                }
+              }
             }
           }
         });
       }
     }
 
-    // Role Chart
+    // Role Distribution Chart
     if (roleChartRef.current) {
       const roleCounts: Record<string, number> = {};
       candidates.forEach((candidate) => {
-        const key = candidate.role ?? 'Unassigned';
+        const key = candidate.role ?? 'Chưa xác định';
         roleCounts[key] = (roleCounts[key] ?? 0) + 1;
       });
 
-      const roleCtx = roleChartRef.current.getContext('2d');
-      if (roleCtx) {
-        roleChartInstance.current = new Chart(roleCtx, {
+      const ctx = roleChartRef.current.getContext('2d');
+      if (ctx) {
+        roleChartInstance.current = new Chart(ctx, {
           type: 'doughnut',
           data: {
             labels: Object.keys(roleCounts),
             datasets: [{
               data: Object.values(roleCounts),
-              backgroundColor: ['#3b82f6', '#8b5cf6', '#10b981'],
+              backgroundColor: ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444'],
+              hoverOffset: 4
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { position: 'bottom' }
+            }
+          }
+        });
+      }
+    }
+
+    // Status Chart
+    if (statusChartRef.current) {
+      const ctx = statusChartRef.current.getContext('2d');
+      if (ctx) {
+        statusChartInstance.current = new Chart(ctx, {
+          type: 'doughnut',
+          data: {
+            labels: ['Hoàn thành', 'Đang làm', 'Chờ AI', 'Chưa bắt đầu'],
+            datasets: [{
+              data: [
+                statusCounts.completed,
+                statusCounts.in_progress,
+                statusCounts.awaiting_ai,
+                statusCounts.not_started
+              ],
+              backgroundColor: ['#10b981', '#3b82f6', '#f59e0b', '#94a3b8'],
               hoverOffset: 4
             }]
           },
@@ -162,14 +215,17 @@ export const Analytics = () => {
     }
 
     return () => {
-      if (bandChartInstance.current) {
-        bandChartInstance.current.destroy();
+      if (skillChartInstance.current) {
+        skillChartInstance.current.destroy();
       }
       if (roleChartInstance.current) {
         roleChartInstance.current.destroy();
       }
+      if (statusChartInstance.current) {
+        statusChartInstance.current.destroy();
+      }
     };
-  }, [completedCandidates, candidates]);
+  }, [candidates, completedCandidates, averageSkillScores, statusCounts]);
 
   if (loading) {
     return <div className="text-center p-8">Đang tải dữ liệu...</div>;
@@ -181,7 +237,6 @@ export const Analytics = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <header className="flex justify-between items-center">
         <h1 className="font-bold text-3xl tracking-tight text-foreground">Phân tích & Báo cáo</h1>
       </header>
@@ -189,59 +244,110 @@ export const Analytics = () => {
       <main>
         {/* KPI Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <Card className="p-6 flex flex-col bg-card border border-border rounded-3xl shadow-lg">
-            <h3 className="text-muted-foreground font-medium mb-2">Tổng ứng viên</h3>
-            <p className="text-4xl font-bold text-foreground">{totalCandidates}</p>
+          <Card className="p-6 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 border-blue-200 dark:border-blue-700 rounded-3xl shadow-lg">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-blue-700 dark:text-blue-300 font-medium">Tổng ứng viên</h3>
+              <Users className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+            </div>
+            <p className="text-4xl font-bold text-blue-900 dark:text-blue-100">{totalCandidates}</p>
           </Card>
-          <Card className="p-6 flex flex-col bg-card border border-border rounded-3xl shadow-lg">
-            <h3 className="text-muted-foreground font-medium mb-2">Tỷ lệ hoàn thành</h3>
-            <p className="text-4xl font-bold text-foreground">{completionRate.toFixed(0)}%</p>
+
+          <Card className="p-6 bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-900/20 dark:to-emerald-800/20 border-emerald-200 dark:border-emerald-700 rounded-3xl shadow-lg">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-emerald-700 dark:text-emerald-300 font-medium">Tỷ lệ hoàn thành</h3>
+              <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+            </div>
+            <p className="text-4xl font-bold text-emerald-900 dark:text-emerald-100">{completionRate.toFixed(0)}%</p>
+            <p className="text-sm text-emerald-600 dark:text-emerald-400 mt-1">{statusCounts.completed}/{totalCandidates} ứng viên</p>
           </Card>
-          <Card className="p-6 flex flex-col bg-card border border-border rounded-3xl shadow-lg">
-            <h3 className="text-muted-foreground font-medium mb-2">Điểm trung bình</h3>
-            <p className="text-4xl font-bold text-foreground">{averageScore != null ? averageScore.toFixed(0) : 'N/A'}</p>
+
+          <Card className="p-6 bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 border-purple-200 dark:border-purple-700 rounded-3xl shadow-lg">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-purple-700 dark:text-purple-300 font-medium">Đang chờ xử lý</h3>
+              <TrendingUp className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+            </div>
+            <p className="text-4xl font-bold text-purple-900 dark:text-purple-100">{statusCounts.awaiting_ai + statusCounts.in_progress}</p>
+            <p className="text-sm text-purple-600 dark:text-purple-400 mt-1">
+              {statusCounts.in_progress} đang làm, {statusCounts.awaiting_ai} chờ AI
+            </p>
           </Card>
-          <Card className="p-6 flex flex-col bg-card border border-border rounded-3xl shadow-lg">
-            <h3 className="text-muted-foreground font-medium mb-1">Trạng thái đánh giá</h3>
-            <p className="text-4xl font-bold text-foreground">{awaitingAiCount}</p>
-            <p className="text-sm text-muted-foreground">đang chờ AI chấm</p>
-            <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-sm text-muted-foreground">
-              <div>
-                Chưa bắt đầu:{' '}
-                <span className="font-semibold text-foreground">{notStartedCount}</span>
-              </div>
-              <div>
-                Đang làm:{' '}
-                <span className="font-semibold text-foreground">{inProgressCount}</span>
-              </div>
-              <div>
-                Hoàn thành:{' '}
-                <span className="font-semibold text-foreground">{completedCount}</span>
-              </div>
-              <div>
-                A Player:{' '}
-                <span className="font-semibold text-foreground">{aPlayers}</span>
-              </div>
-              <div className="col-span-2">
-                Top gợi ý:{' '}
-                <span className="font-semibold text-foreground">{topRecommendedRole ?? 'N/A'}</span>
-              </div>
+
+          <Card className="p-6 bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-900/20 dark:to-amber-800/20 border-amber-200 dark:border-amber-700 rounded-3xl shadow-lg">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-amber-700 dark:text-amber-300 font-medium">Chưa bắt đầu</h3>
+              <Award className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+            </div>
+            <p className="text-4xl font-bold text-amber-900 dark:text-amber-100">{statusCounts.not_started}</p>
+          </Card>
+        </div>
+
+        {/* Charts Row 1 */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+          <Card className="p-6 bg-card border border-border rounded-3xl shadow-lg">
+            <div className="flex items-center gap-2 mb-4">
+              <Target className="h-5 w-5 text-emerald-600" />
+              <h3 className="font-bold text-lg text-foreground">Kỹ năng trung bình</h3>
+            </div>
+            <div className="h-80">
+              {averageSkillScores.length > 0 ? (
+                <canvas ref={skillChartRef}></canvas>
+              ) : (
+                <div className="flex items-center justify-center h-full text-muted-foreground">
+                  Chưa có dữ liệu kỹ năng
+                </div>
+              )}
+            </div>
+          </Card>
+
+          <Card className="p-6 bg-card border border-border rounded-3xl shadow-lg">
+            <div className="flex items-center gap-2 mb-4">
+              <Briefcase className="h-5 w-5 text-blue-600" />
+              <h3 className="font-bold text-lg text-foreground">Phân bổ theo vị trí</h3>
+            </div>
+            <div className="h-80">
+              <canvas ref={roleChartRef}></canvas>
             </div>
           </Card>
         </div>
 
-        {/* Charts */}
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
-          <Card className="lg:col-span-3 p-6 bg-card border border-border rounded-3xl shadow-lg">
-            <h3 className="font-bold text-lg mb-4 text-foreground">Phân bổ theo Xếp loại</h3>
+        {/* Charts Row 2 */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <Card className="p-6 bg-card border border-border rounded-3xl shadow-lg">
+            <h3 className="font-bold text-lg mb-4 text-foreground">Trạng thái đánh giá</h3>
             <div className="h-64">
-              <canvas ref={bandChartRef}></canvas>
+              <canvas ref={statusChartRef}></canvas>
             </div>
           </Card>
-          <Card className="lg:col-span-2 p-6 bg-card border border-border rounded-3xl shadow-lg">
-            <h3 className="font-bold text-lg mb-4 text-foreground">Phân bổ theo Vị trí</h3>
-            <div className="h-64">
-              <canvas ref={roleChartRef}></canvas>
+
+          <Card className="p-6 bg-card border border-border rounded-3xl shadow-lg">
+            <h3 className="font-bold text-lg mb-4 text-foreground">Điểm mạnh phổ biến</h3>
+            <div className="space-y-3">
+              {topStrengths.length > 0 ? (
+                topStrengths.map(([strength, count]) => (
+                  <div key={strength} className="flex items-center justify-between">
+                    <span className="text-sm text-foreground flex-1">{strength}</span>
+                    <span className="text-sm font-semibold text-emerald-600 ml-2">{count}</span>
+                  </div>
+                ))
+              ) : (
+                <p className="text-sm text-muted-foreground">Chưa có dữ liệu</p>
+              )}
+            </div>
+          </Card>
+
+          <Card className="p-6 bg-card border border-border rounded-3xl shadow-lg">
+            <h3 className="font-bold text-lg mb-4 text-foreground">Vai trò được gợi ý</h3>
+            <div className="space-y-3">
+              {topRecommendedRoles.length > 0 ? (
+                topRecommendedRoles.map(([role, count]) => (
+                  <div key={role} className="flex items-center justify-between">
+                    <span className="text-sm text-foreground flex-1">{role}</span>
+                    <span className="text-sm font-semibold text-blue-600 ml-2">{count}</span>
+                  </div>
+                ))
+              ) : (
+                <p className="text-sm text-muted-foreground">Chưa có dữ liệu</p>
+              )}
             </div>
           </Card>
         </div>

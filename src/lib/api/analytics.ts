@@ -1,10 +1,7 @@
 import { supabase } from '../supabaseClient';
 import type { CandidateAIInsights, CandidateAttemptStatus } from './types';
-import {
-  candidateSummarySelect,
-  mapCandidateSummary,
-  type SupabaseCandidateProfile,
-} from './candidates';
+import type { SupabaseCandidateUser } from './candidates';
+import { candidateSummarySelect, mapCandidateSummary } from './candidates';
 
 export interface AnalyticsCandidateRow {
   id: string;
@@ -13,34 +10,29 @@ export interface AnalyticsCandidateRow {
   band: string | null;
   aiInsights?: CandidateAIInsights;
   status: CandidateAttemptStatus;
+  recommendedTeam?: {
+    id: string;
+    name: string;
+  } | null;
 }
 
 export const getAnalyticsData = async (): Promise<AnalyticsCandidateRow[]> => {
-  const { data, error } = await supabase
-    .from('profiles')
-    .select(candidateSummarySelect)
-    .order('analysis_completed_at', { foreignTable: 'results', ascending: false, nullsFirst: false })
-    .order('created_at', { foreignTable: 'assessment_attempts', ascending: false });
+  // Import fetchTeams from candidates module
+  const { getCandidates } = await import('./candidates');
+  
+  // Use getCandidates which already handles teams mapping
+  const candidates = await getCandidates();
 
-  if (error) {
-    console.error('Failed to load analytics data:', error);
-    throw new Error('Unable to load analytics data.');
-  }
-
-  const rows = (data as SupabaseCandidateProfile[] | null) ?? [];
-
-  return rows.map((profile) => {
-    const summary = mapCandidateSummary(profile);
-    const status = summary.attempt?.status ?? 'not_started';
-    const role = summary.attempt?.assessmentRole ?? summary.role ?? 'Chưa xác định';
-
+  // Map to analytics format
+  return candidates.map((candidateSummary) => {
     return {
-      id: summary.id,
-      name: summary.fullName ?? 'Chưa cập nhật',
-      role,
-      band: summary.band ?? null,
-      aiInsights: summary.aiInsights,
-      status: status as CandidateAttemptStatus,
-    } satisfies AnalyticsCandidateRow;
+      id: candidateSummary.id,
+      name: candidateSummary.fullName ?? 'Chưa cập nhật',
+      role: candidateSummary.role ?? 'Chưa xác định',
+      band: candidateSummary.band,
+      aiInsights: candidateSummary.aiInsights,
+      status: candidateSummary.attempt?.status ?? 'not_started',
+      recommendedTeam: candidateSummary.recommendedTeam,
+    };
   });
 };

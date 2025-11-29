@@ -23,7 +23,7 @@ const toMinutes = (seconds?: number) => {
   if (!seconds || seconds <= 0) {
     return DEFAULT_DURATION_MINUTES;
   }
-  return Math.max(1, Math.round(seconds / 60));
+  return Math.max(1, Math.round(seconds));
 };
 
 const RoleManager: React.FC<RoleManagerProps> = ({ roles, questions, setRoles, setQuestions, onClose }) => {
@@ -57,7 +57,7 @@ const RoleManager: React.FC<RoleManagerProps> = ({ roles, questions, setRoles, s
       return;
     }
 
-    const durationSeconds = Math.round(parsedMinutes * 60);
+    const durationSeconds = Math.round(parsedMinutes);
 
     try {
       const createdRole = await apiCreateRole(trimmedName, durationSeconds);
@@ -109,7 +109,7 @@ const RoleManager: React.FC<RoleManagerProps> = ({ roles, questions, setRoles, s
       return;
     }
 
-    const durationSeconds = Math.round(parsedMinutes * 60);
+    const durationSeconds = Math.round(parsedMinutes);
 
     try {
       await apiUpdateRoleDuration(roleName, durationSeconds);
@@ -194,7 +194,7 @@ const RoleManager: React.FC<RoleManagerProps> = ({ roles, questions, setRoles, s
                   const parsedMinutes = Number(inputValue);
                   const currentMinutes = toMinutes(role.duration);
                   const isInvalid = !inputValue || !Number.isFinite(parsedMinutes) || parsedMinutes <= 0;
-                  const isDirty = !isInvalid && parsedMinutes * 60 !== role.duration;
+                  const isDirty = !isInvalid && parsedMinutes !== role.duration;
 
                   return (
                     <li

@@ -8,7 +8,7 @@ interface SupabaseRoleData {
 
 export const getRoles = async (): Promise<RoleSummary[]> => {
   const { data, error } = await supabase
-    .from('assessments')
+    .from('interview_assessments')
     .select('target_role, duration');
 
   if (error) {
@@ -41,16 +41,13 @@ export const createRole = async (roleName: string, durationSeconds: number): Pro
   endDate.setMonth(endDate.getMonth() + 1);
 
   const { data, error } = await supabase
-    .from('assessments')
+    .from('interview_assessments')
     .insert([
       {
         target_role: roleName,
         title: `Assessment for ${roleName}`,
         description: `Assessment tailored for the ${roleName} role`,
         duration: durationSeconds,
-        is_active: true,
-        start_date: startDate.toISOString().slice(0, 10),
-        end_date: endDate.toISOString().slice(0, 10),
       },
     ])
     .select('target_role, duration')
@@ -69,7 +66,7 @@ export const createRole = async (roleName: string, durationSeconds: number): Pro
 
 export const updateRoleDuration = async (roleName: string, durationSeconds: number): Promise<void> => {
   const { error } = await supabase
-    .from('assessments')
+    .from('interview_assessments')
     .update({ duration: durationSeconds })
     .eq('target_role', roleName);
 
@@ -81,7 +78,7 @@ export const updateRoleDuration = async (roleName: string, durationSeconds: numb
 
 export const deleteRole = async (roleName: string): Promise<void> => {
   const { error } = await supabase
-    .from('assessments')
+    .from('interview_assessments')
     .delete()
     .eq('target_role', roleName);
 
