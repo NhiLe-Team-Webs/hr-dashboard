@@ -29,7 +29,6 @@ export interface CandidateAttemptSummary {
 }
 
 export interface CandidateAIInsights {
-  overallScore?: number | null;
   skillScores?: Record<string, number | null>;
   strengths?: string[];
   weaknesses?: string[];
@@ -38,15 +37,15 @@ export interface CandidateAIInsights {
   developmentSuggestions?: string[];
   rawAiSummary?: Record<string, unknown> | null;
   model?: string | null;
-  version?: string | null;
   analysisCompletedAt?: string | null;
   createdAt?: string | null;
   insightLocale?: string | null;
   insightVersion?: string | null;
-  roleFit?: Record<string, number | null>;
+  teamFit?: string[] | null;
   timeAnalysis?: Record<string, unknown> | null;
   cheatingSummary?: Record<string, unknown> | null;
   personalityTraits?: Record<string, unknown> | null;
+  overallScore?: number | null;
 }
 
 export interface CandidateCheatingEvent {
@@ -66,6 +65,10 @@ export interface CandidateSummary {
   aiInsights?: CandidateAIInsights;
   attempt?: CandidateAttemptSummary;
   attemptCount?: number;
+  recommendedTeam?: {
+    id: string;
+    name: string;
+  } | null;
 }
 
 export interface CandidateDetailSummary extends CandidateSummary {

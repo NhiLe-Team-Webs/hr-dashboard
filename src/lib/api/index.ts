@@ -14,4 +14,4 @@ export {
   deleteQuestionOptionViaApi,
 } from './questionApi';
 export { getAnalyticsData, type AnalyticsCandidateRow } from './analytics';
-export { updateCandidateInfo, getCandidateDetails, getCandidates } from './candidates';
+export { updateCandidateInfo, getCandidateDetails, getCandidates, getCandidateAnswers, type CandidateAnswer } from './candidates';

@@ -25,6 +25,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/components/ui/use-toast';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const statusConfig: Record<CandidateAttemptStatus | 'not_started', { label: string; className: string }> = {
   not_started: { label: 'Chưa bắt đầu', className: 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200' },
@@ -98,6 +99,7 @@ export const CandidateList = () => {
   const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedTeam, setSelectedTeam] = useState<string>('all');
 
   useEffect(() => {
     const fetchCandidates = async () => {
@@ -114,22 +116,38 @@ export const CandidateList = () => {
     fetchCandidates();
   }, []);
 
+  const uniqueTeams = useMemo(() => {
+    const teams = new Set<string>();
+    candidates.forEach((candidate) => {
+      if (candidate.recommendedTeam?.name) {
+        teams.add(candidate.recommendedTeam.name);
+      }
+    });
+    return Array.from(teams).sort();
+  }, [candidates]);
+
   const filteredCandidates = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
-    if (!query) {
-      return candidates;
-    }
+    
     return candidates.filter((candidate) => {
+      // Apply search filter
       const name = candidate.fullName ?? '';
       const email = candidate.email ?? '';
       const role = candidate.role ?? '';
-      return (
+      const matchesSearch = !query || (
         name.toLowerCase().includes(query) ||
         email.toLowerCase().includes(query) ||
         role.toLowerCase().includes(query)
       );
+      
+      // Apply team filter
+      const matchesTeam = selectedTeam === 'all' || 
+        (selectedTeam === 'unassigned' && !candidate.recommendedTeam) ||
+        candidate.recommendedTeam?.name === selectedTeam;
+      
+      return matchesSearch && matchesTeam;
     });
-  }, [candidates, searchTerm]);
+  }, [candidates, searchTerm, selectedTeam]);
 
   const selectedCandidate = candidates.find((c) => c.id === selectedCandidateId) ?? null;
   const isDetailDialogOpen = isDetailOpen && Boolean(selectedCandidate);
@@ -265,16 +283,34 @@ export const CandidateList = () => {
         </Dialog>
       </div>
 
-      {/* Search */}
+      {/* Search and Filters */}
       <Card className="p-4">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            placeholder="Tìm kiếm ứng viên theo tên, email hoặc vị trí..."
-            value={searchTerm}
-            onChange={(event) => setSearchTerm(event.target.value)}
-            className="pl-10"
-          />
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              placeholder="Tìm kiếm ứng viên theo tên, email hoặc vị trí..."
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+              className="pl-10"
+            />
+          </div>
+          <div className="w-full sm:w-[200px]">
+            <Select value={selectedTeam} onValueChange={setSelectedTeam}>
+              <SelectTrigger>
+                <SelectValue placeholder="Lọc theo team" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tất cả team</SelectItem>
+                <SelectItem value="unassigned">Chưa phân team</SelectItem>
+                {uniqueTeams.map((team) => (
+                  <SelectItem key={team} value={team}>
+                    {team}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       </Card>
 
@@ -386,6 +422,13 @@ export const CandidateList = () => {
                               </span>
                             </div>
                           )}
+                          <div className="flex items-center gap-1 text-sm">
+                            <UserCheck className="w-3 h-3" />
+                            <span className="text-muted-foreground">Team:</span>
+                            <span className="text-foreground font-medium truncate max-w-[10rem]">
+                              {candidate.recommendedTeam?.name ?? 'Not assigned'}
+                            </span>
+                          </div>
                         </div>
                         {(summaryPreviewSections.length > 0 || summaryPlainText) && (
                           <div className="grid grid-cols-1 gap-2 md:grid-cols-2">

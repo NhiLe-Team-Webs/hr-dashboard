@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "vite 2>&1 | tee ../logs.txt",
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",

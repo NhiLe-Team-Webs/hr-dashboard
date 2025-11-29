@@ -46,13 +46,18 @@ export const Analytics = () => {
   // Aggregate skill scores across all completed candidates
   const skillScoreAggregates: Record<string, { total: number; count: number }> = {};
   completedCandidates.forEach((candidate) => {
-    candidate.aiInsights?.skillScores?.forEach((skill) => {
-      if (!skillScoreAggregates[skill.name]) {
-        skillScoreAggregates[skill.name] = { total: 0, count: 0 };
-      }
-      skillScoreAggregates[skill.name].total += skill.score;
-      skillScoreAggregates[skill.name].count += 1;
-    });
+    const skillScores = candidate.aiInsights?.skillScores;
+    if (skillScores) {
+      Object.entries(skillScores).forEach(([skillName, score]) => {
+        if (score != null) {
+          if (!skillScoreAggregates[skillName]) {
+            skillScoreAggregates[skillName] = { total: 0, count: 0 };
+          }
+          skillScoreAggregates[skillName].total += score;
+          skillScoreAggregates[skillName].count += 1;
+        }
+      });
+    }
   });
 
   const averageSkillScores = Object.entries(skillScoreAggregates)

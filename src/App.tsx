@@ -4,12 +4,15 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { AuthProvider } from "@/contexts/AuthContext";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import Analytics from "./components/Analytics";
 import CandidateList from "./components/CandidateList";
 import QuestionEditor from "./components/QuestionEditor/QuestionEditor";
 import LandingPageEditor from "./components/LandingPageEditor";
+import Login from "./components/Login";
+import ProtectedRoute from "./components/ProtectedRoute";
 
 const queryClient = new QueryClient();
 
@@ -19,14 +22,17 @@ const App = () => (
             <Toaster />
             <Sonner />
             <BrowserRouter>
-                <Routes>
-                    <Route path="/" element={<Index><Analytics /></Index>} />
-                    <Route path="/analytics" element={<Index><Analytics /></Index>} />
-                    <Route path="/candidates" element={<Index><CandidateList /></Index>} />
-                    <Route path="/questions" element={<Index><QuestionEditor /></Index>} />
-                    <Route path="/landing-page" element={<Index><LandingPageEditor /></Index>} />
-                    <Route path="*" element={<NotFound />} />
-                </Routes>
+                <AuthProvider>
+                    <Routes>
+                        <Route path="/login" element={<Login />} />
+                        <Route path="/" element={<ProtectedRoute><Index><Analytics /></Index></ProtectedRoute>} />
+                        <Route path="/analytics" element={<ProtectedRoute><Index><Analytics /></Index></ProtectedRoute>} />
+                        <Route path="/candidates" element={<ProtectedRoute><Index><CandidateList /></Index></ProtectedRoute>} />
+                        <Route path="/questions" element={<ProtectedRoute><Index><QuestionEditor /></Index></ProtectedRoute>} />
+                        <Route path="/landing-page" element={<ProtectedRoute><Index><LandingPageEditor /></Index></ProtectedRoute>} />
+                        <Route path="*" element={<NotFound />} />
+                    </Routes>
+                </AuthProvider>
             </BrowserRouter>
         </TooltipProvider>
     </QueryClientProvider>

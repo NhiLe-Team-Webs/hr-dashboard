@@ -1,8 +1,8 @@
 // src/types/supabase.ts
 
-// Interfaces for the Profiles table
+// Interfaces for the Users table
 export interface ProfileUpdates {
-  name?: string;
+  full_name?: string;
   email?: string;
   role?: string;
   band?: string;
@@ -10,8 +10,8 @@ export interface ProfileUpdates {
 
 // Interfaces for the Analytics data returned by the Supabase query
 export interface SupabaseAnalyticsUser {
-  id: string;
-  name: string;
+  auth_id: string;
+  full_name: string;
   band: string | null;
 }
 
@@ -20,7 +20,6 @@ export interface SupabaseAnalyticsAssessment {
 }
 
 export interface SupabaseAnalyticsData {
-  overall_score: number | null;
   skill_scores: Record<string, unknown> | null;
   strengths: unknown;
   weaknesses: unknown;
@@ -29,8 +28,8 @@ export interface SupabaseAnalyticsData {
   development_suggestions: unknown;
   ai_summary: Record<string, unknown> | null;
   analysis_model: string | null;
-  analysis_version: string | null;
   analysis_completed_at: string | null;
+  team_fit: string[] | null;
   user: SupabaseAnalyticsUser;
   assessment: SupabaseAnalyticsAssessment;
 }

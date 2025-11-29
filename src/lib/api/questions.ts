@@ -10,7 +10,7 @@ import {
 
 export const getQuestionsByRole = async (role: string): Promise<Question[]> => {
   const { data: assessmentData, error: assessmentError } = await supabase
-    .from('assessments')
+    .from('interview_assessments')
     .select('id')
     .eq('target_role', role)
     .single();
@@ -21,7 +21,7 @@ export const getQuestionsByRole = async (role: string): Promise<Question[]> => {
   }
 
   const { data, error } = await supabase
-    .from('questions')
+    .from('interview_questions')
     .select(
       `
         id,
@@ -30,7 +30,7 @@ export const getQuestionsByRole = async (role: string): Promise<Question[]> => {
         required,
         assessment_id,
         created_at,
-        options:question_options(id, option_text, is_correct)
+        options:interview_question_options(id, option_text, is_correct)
       `,
     )
     .eq('assessment_id', assessmentData.id);
@@ -45,7 +45,7 @@ export const getQuestionsByRole = async (role: string): Promise<Question[]> => {
 
 export const createQuestion = async (questionData: QuestionDraft, targetRole: string): Promise<Question> => {
   const { data: assessment, error: assessmentError } = await supabase
-    .from('assessments')
+    .from('interview_assessments')
     .select('id')
     .eq('target_role', targetRole)
     .single();
@@ -56,7 +56,7 @@ export const createQuestion = async (questionData: QuestionDraft, targetRole: st
   }
 
   const { data: newQuestion, error: questionError } = await supabase
-    .from('questions')
+    .from('interview_questions')
     .insert([
       {
         text: questionData.text,
@@ -81,7 +81,7 @@ export const createQuestion = async (questionData: QuestionDraft, targetRole: st
     }));
 
     const { error: optionsError } = await supabase
-      .from('question_options')
+      .from('interview_question_options')
       .insert(optionsData);
 
     if (optionsError) {
@@ -110,7 +110,7 @@ export const updateQuestion = async (questionData: Partial<Question>): Promise<v
   }
 
   const { error: questionError } = await supabase
-    .from('questions')
+    .from('interview_questions')
     .update({
       text: questionData.text,
       format: questionData.format,
@@ -128,7 +128,7 @@ export const updateQuestion = async (questionData: Partial<Question>): Promise<v
 
   if (isMultipleChoice && hasOptions) {
     await supabase
-      .from('question_options')
+      .from('interview_question_options')
       .delete()
       .eq('question_id', questionData.id);
 
@@ -146,7 +146,7 @@ export const updateQuestion = async (questionData: Partial<Question>): Promise<v
     }
 
     const { error: insertError } = await supabase
-      .from('question_options')
+      .from('interview_question_options')
       .insert(optionsToInsert);
 
     if (insertError) {
@@ -155,7 +155,7 @@ export const updateQuestion = async (questionData: Partial<Question>): Promise<v
     }
   } else {
     await supabase
-      .from('question_options')
+      .from('interview_question_options')
       .delete()
       .eq('question_id', questionData.id);
   }
@@ -163,7 +163,7 @@ export const updateQuestion = async (questionData: Partial<Question>): Promise<v
 
 export const deleteQuestion = async (questionId: string): Promise<void> => {
   const { error } = await supabase
-    .from('questions')
+    .from('interview_questions')
     .delete()
     .eq('id', questionId);
 

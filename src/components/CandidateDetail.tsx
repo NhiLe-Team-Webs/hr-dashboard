@@ -1,7 +1,6 @@
 ﻿import { useEffect, useMemo, useState } from 'react';
 import {
   Calendar,
-  Mail,
   User,
   Trophy,
   Target,
@@ -12,14 +11,24 @@ import {
   Lightbulb,
   Clock,
   Timer,
+  FileText,
+  CheckCircle,
+  X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { getScoreColor, getBandColor } from '@/lib/utils';
 import { useToast } from '@/components/ui/use-toast';
-import { getCandidateDetails, type CandidateDetailSummary, type CandidateAttemptSummary, type CandidateAttemptStatus } from '@/lib/api';
+import { getCandidateDetails, getCandidateAnswers, type CandidateDetailSummary, type CandidateAttemptSummary, type CandidateAttemptStatus, type CandidateAnswer } from '@/lib/api';
 import { EMPTY_VALUE, formatDetailValue, parseStructuredSummary, toDisplayEntries } from '@/lib/ai/structuredSummary';
 
 const statusConfig: Record<CandidateAttemptStatus | 'not_started', { label: string; className: string }> = {
@@ -46,12 +55,7 @@ const formatDate = (value?: string | null, options?: Intl.DateTimeFormatOptions)
   }
 };
 
-const skillIcons = {
-  'Work Sample': <Briefcase className="w-4 h-4" />,
-  'Problem Solving': <Target className="w-4 h-4" />,
-  'Reliability': <Trophy className="w-4 h-4" />,
-  'Culture Fit': <Users className="w-4 h-4" />,
-};
+
 
 const formatDurationLabel = (seconds?: number | null) => {
   if (seconds == null || seconds <= 0) {
@@ -86,6 +90,18 @@ const shortenId = (value: string | null | undefined) => {
   return value.length > 10 ? `${value.slice(0, 10)}…` : value;
 };
 
+const getCheatingBadge = (count: number) => {
+  if (count === 0) {
+    return <Badge className="bg-green-100 text-green-700 border-green-200 font-medium pointer-events-none">Không có cảnh báo</Badge>;
+  } else if (count <= 3) {
+    return <Badge className="bg-yellow-100 text-yellow-700 border-yellow-200 font-medium pointer-events-none">Mức độ thấp ({count})</Badge>;
+  } else if (count <= 7) {
+    return <Badge className="bg-orange-100 text-orange-700 border-orange-200 font-medium pointer-events-none">Mức độ trung bình ({count})</Badge>;
+  } else {
+    return <Badge className="bg-red-100 text-red-700 border-red-200 font-medium pointer-events-none">Mức độ cao ({count})</Badge>;
+  }
+};
+
 const normalisePercentage = (value: number) => {
   if (!Number.isFinite(value)) {
     return 0;
@@ -101,6 +117,9 @@ interface CandidateDetailProps {
 export const CandidateDetail = ({ candidateId }: CandidateDetailProps) => {
   const { toast } = useToast();
   const [candidate, setCandidate] = useState<CandidateDetailSummary | null>(null);
+  const [answers, setAnswers] = useState<CandidateAnswer[]>([]);
+  const [loadingAnswers, setLoadingAnswers] = useState(false);
+  const [showAnswersDialog, setShowAnswersDialog] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -120,18 +139,42 @@ export const CandidateDetail = ({ candidateId }: CandidateDetailProps) => {
     fetchCandidate();
   }, [candidateId]);
 
+  const openAnswersDialog = async () => {
+    if (!candidate?.attempt?.id) return;
+    
+    // If answers already loaded, just show dialog
+    if (answers.length > 0) {
+      setShowAnswersDialog(true);
+      return;
+    }
+    
+    // Otherwise, fetch answers
+    setLoadingAnswers(true);
+    try {
+      const data = await getCandidateAnswers(candidate.attempt.id);
+      setAnswers(data);
+      setShowAnswersDialog(true);
+    } catch (err) {
+      console.error('Failed to load answers:', err);
+      toast({
+        title: 'Lỗi',
+        description: 'Không thể tải câu trả lời của ứng viên.',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoadingAnswers(false);
+    }
+  };
+
   const attempt = candidate?.attempt;
   const attemptStatus = attempt?.status ?? 'not_started';
   const aiInsights = candidate?.aiInsights;
-  const overallScore = aiInsights?.overallScore ?? null;
   const strengths = aiInsights?.strengths ?? [];
   const weaknesses = aiInsights?.weaknesses ?? [];
   const recommendedRoles = aiInsights?.recommendedRoles ?? [];
   const developmentSuggestions = aiInsights?.developmentSuggestions ?? [];
   const analysisCompletedAt = aiInsights?.analysisCompletedAt ? formatDate(aiInsights.analysisCompletedAt) : null;
-  const insightLocale = aiInsights?.insightLocale ?? null;
-  const insightVersion = aiInsights?.insightVersion ?? null;
-  const { plainText: plainSummaryText, sections: structuredSummarySections } = useMemo(
+  const { sections: structuredSummarySections } = useMemo(
     () => parseStructuredSummary(aiInsights?.summary ?? null),
     [aiInsights?.summary],
   );
@@ -160,32 +203,21 @@ export const CandidateDetail = ({ candidateId }: CandidateDetailProps) => {
     return entries.sort((a, b) => b[1] - a[1]);
   }, [aiInsights?.skillScores]);
 
-  const questionTimingEntries = useMemo(() => {
-    const timings = attempt?.questionTimings;
-    if (!timings) {
-      return [] as Array<[string, number]>;
-    }
 
-    return Object.entries(timings)
-      .map(([questionId, rawValue]) => {
-        const value = typeof rawValue === 'number' ? rawValue : Number(rawValue);
-        if (!Number.isFinite(value)) {
-          return null;
-        }
-        return [questionId, value] as [string, number];
-      })
-      .filter((entry): entry is [string, number] => Boolean(entry))
-      .sort((a, b) => b[1] - a[1]);
-  }, [attempt?.questionTimings]);
 
-  const roleFitEntries = useMemo(() => {
-    const record = aiInsights?.roleFit;
+  const teamFitEntries = useMemo(() => {
+    const record = aiInsights?.teamFit;
     if (!record) {
       return [] as Array<[string, number]>;
     }
 
+    // Handle array of strings (new format) or object (legacy format fallback)
+    if (Array.isArray(record)) {
+      return record.map(team => [team, 100] as [string, number]);
+    }
+
     return Object.entries(record)
-      .map(([roleName, rawValue]) => {
+      .map(([teamName, rawValue]) => {
         if (rawValue == null) {
           return null;
         }
@@ -193,11 +225,11 @@ export const CandidateDetail = ({ candidateId }: CandidateDetailProps) => {
         if (!Number.isFinite(numericValue)) {
           return null;
         }
-        return [roleName, normalisePercentage(numericValue)] as [string, number];
+        return [teamName, normalisePercentage(numericValue)] as [string, number];
       })
       .filter((entry): entry is [string, number] => Boolean(entry))
       .sort((a, b) => b[1] - a[1]);
-  }, [aiInsights?.roleFit]);
+  }, [aiInsights?.teamFit]);
 
   const timeAnalysisEntries = useMemo(
     () => toDisplayEntries(aiInsights?.timeAnalysis ?? null).filter((entry) => entry.value && entry.value !== EMPTY_VALUE),
@@ -249,20 +281,11 @@ export const CandidateDetail = ({ candidateId }: CandidateDetailProps) => {
       </div>
 
       <div className="p-6 space-y-6">
-        {overallScore != null && (
-          <div className="text-center">
-            <div className="inline-flex items-center justify-center w-24 h-24 bg-gradient-to-br from-primary/10 to-primary/5 rounded-full border-4 border-primary/20 mb-3">
-              <span className={`text-3xl font-bold ${getScoreColor(overallScore)}`}>
-                {Math.round(overallScore)}
-              </span>
-            </div>
-            {candidate.band && (
-              <div>
-                <Badge className={`font-bold text-sm px-3 py-1 ${getBandColor(candidate.band)} pointer-events-none`}>
-                  Xếp loại {candidate.band}
-                </Badge>
-              </div>
-            )}
+        {candidate.band && (
+          <div className="text-center mb-6">
+            <Badge className={`font-bold text-sm px-3 py-1 ${getBandColor(candidate.band)} pointer-events-none`}>
+              Xếp loại {candidate.band}
+            </Badge>
             {analysisCompletedAt && (
               <p className="text-xs text-muted-foreground mt-2">Phân tích lúc: {analysisCompletedAt}</p>
             )}
@@ -279,20 +302,26 @@ export const CandidateDetail = ({ candidateId }: CandidateDetailProps) => {
               {getStatusBadge(attemptStatus)}
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm text-muted-foreground">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 sm:col-span-2">
                 <Target className="w-4 h-4" />
-                Vị trí mục tiêu:
-                <span className="text-foreground font-medium">
-                  {attempt.assessmentRole ?? '—'}
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Briefcase className="w-4 h-4" />
-                Bài đánh giá:
+                Bài test:
                 <span className="text-foreground font-medium">
                   {attempt.assessmentTitle ?? '—'}
                 </span>
               </div>
+              {teamFitEntries.length > 0 && (
+                <div className="flex items-center gap-2 sm:col-span-2">
+                  <Users className="w-4 h-4" />
+                  Team phù hợp:
+                  <div className="flex flex-wrap gap-1">
+                    {teamFitEntries.map(([teamName]) => (
+                      <Badge key={teamName} variant="secondary" className="text-xs">
+                        {teamName}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
               <div className="flex items-center gap-2">
                 <Calendar className="w-4 h-4" />
                 Bắt đầu:
@@ -339,17 +368,18 @@ export const CandidateDetail = ({ candidateId }: CandidateDetailProps) => {
                 </Badge>
               )}
             </div>
-            {questionTimingEntries.length > 0 && (
-              <div className="space-y-2">
-                <h4 className="text-xs font-semibold uppercase tracking-wide text-foreground">Top câu mất thời gian</h4>
-                <div className="space-y-1 text-xs text-muted-foreground">
-                  {questionTimingEntries.slice(0, 5).map(([questionId, value]) => (
-                    <div key={questionId} className="flex items-center justify-between rounded-lg bg-muted/30 px-3 py-2">
-                      <span className="text-foreground font-medium">{shortenId(questionId)}</span>
-                      <span>{formatDurationLabel(value) ?? `${Math.round(value)} giây`}</span>
-                    </div>
-                  ))}
-                </div>
+            {attempt.status === 'completed' && (
+              <div className="pt-3 border-t border-border/40">
+                <Button
+                  onClick={openAnswersDialog}
+                  disabled={loadingAnswers}
+                  variant="outline"
+                  className="w-full"
+                  size="sm"
+                >
+                  <FileText className="w-4 h-4 mr-2" />
+                  {loadingAnswers ? 'Đang tải...' : 'Xem câu trả lời'}
+                </Button>
               </div>
             )}
           </div>
@@ -358,6 +388,8 @@ export const CandidateDetail = ({ candidateId }: CandidateDetailProps) => {
             Ứng viên chưa bắt đầu bài đánh giá nào.
           </div>
         )}
+
+
 
         {aiInsights && (
           <>
@@ -416,45 +448,138 @@ export const CandidateDetail = ({ candidateId }: CandidateDetailProps) => {
               );
             })}
 
-            {(strengths.length > 0 || weaknesses.length > 0 || developmentSuggestions.length > 0) && (
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                {strengths.length > 0 && (
-                  <div className="bg-muted/20 border border-border/60 rounded-2xl p-4 space-y-2">
-                    <h3 className="font-semibold text-foreground flex items-center gap-2">
-                      <Sparkles className="w-4 h-4 text-primary" />
-                      Điểm mạnh
-                    </h3>
-                    <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
-                      {strengths.map((item) => (
-                        <li key={item}>{item}</li>
+            {strengths.length > 0 && (
+              <div className="bg-emerald-50/50 border border-emerald-200 rounded-2xl p-6 space-y-3">
+                <div className="flex items-center gap-3">
+                  <Trophy className="w-6 h-6 text-emerald-500" />
+                  <h3 className="text-xl font-semibold text-foreground">Điểm mạnh</h3>
+                </div>
+                <p className="text-sm text-muted-foreground">Những điểm nổi bật của ứng viên</p>
+                <div className="flex flex-wrap gap-3">
+                  {strengths.map((item) => (
+                    <span
+                      key={item}
+                      className="rounded-full bg-emerald-100 px-4 py-2 text-sm font-semibold text-emerald-700 shadow-sm"
+                    >
+                      {item}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {teamFitEntries.length > 0 && (
+              <div className="bg-sky-50/50 border border-sky-200 rounded-2xl p-6 space-y-3">
+                <div className="flex items-center gap-3">
+                  <Users className="w-6 h-6 text-sky-500" />
+                  <h3 className="text-xl font-semibold text-foreground">Team phù hợp</h3>
+                </div>
+                <p className="text-sm text-muted-foreground">Các team được đề xuất dựa trên kết quả đánh giá</p>
+                <div className="flex flex-wrap gap-3">
+                  {teamFitEntries.map(([teamName]) => (
+                    <span
+                      key={teamName}
+                      className="rounded-full bg-sky-100 px-4 py-2 text-sm font-semibold text-sky-700 shadow-sm"
+                    >
+                      {teamName}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {skillEntries.length > 0 && (
+              <div className="bg-gradient-to-br from-purple-50/50 to-sky-50/50 border border-purple-200 rounded-2xl p-6 space-y-4">
+                <div className="flex items-center gap-3">
+                  <Sparkles className="w-6 h-6 text-purple-500" />
+                  <h3 className="text-xl font-semibold text-foreground">Bảng điểm năng lực</h3>
+                </div>
+                <p className="text-sm text-muted-foreground">Đánh giá chi tiết các kỹ năng của ứng viên</p>
+                <div className="grid gap-4 md:grid-cols-2">
+                  {skillEntries.map(([skill, value]) => {
+                    const label = formatSkillLabel(skill);
+                    const progressValue = Math.max(0, Math.min(100, value));
+                    return (
+                      <div
+                        key={skill}
+                        className="rounded-2xl border border-sky-100 bg-gradient-to-br from-sky-50 to-white p-5 shadow-sm"
+                      >
+                        <div className="flex items-center justify-between text-sm font-semibold text-slate-700 mb-3">
+                          <span>{label}</span>
+                          <span className={`text-lg ${getScoreColor(value)}`}>{Math.round(value)}%</span>
+                        </div>
+                        <div className="h-2.5 rounded-full bg-sky-100">
+                          <div
+                            className="h-full rounded-full bg-gradient-to-r from-sky-400 to-emerald-400 transition-all"
+                            style={{ width: `${progressValue}%` }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {recommendedRoles.length > 0 && (
+              <div className="bg-gradient-to-br from-emerald-50/50 to-teal-50/50 border border-emerald-200 rounded-2xl p-6 space-y-3">
+                <div className="flex items-center gap-3">
+                  <Target className="w-6 h-6 text-emerald-500" />
+                  <h3 className="text-xl font-semibold text-foreground">Vị trí được đề xuất</h3>
+                </div>
+                <p className="text-sm text-muted-foreground">Các vị trí phù hợp với năng lực của ứng viên</p>
+                <div className="flex flex-wrap gap-3">
+                  {recommendedRoles.map((role) => (
+                    <span
+                      key={role}
+                      className="rounded-2xl bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700 shadow-sm"
+                    >
+                      {role}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {(weaknesses.length > 0 || developmentSuggestions.length > 0) && (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {developmentSuggestions.length > 0 && (
+                  <div className="bg-purple-50/50 border border-purple-200 rounded-2xl p-6 space-y-3">
+                    <div className="flex items-center gap-3">
+                      <Lightbulb className="w-6 h-6 text-purple-500" />
+                      <h3 className="text-xl font-semibold text-foreground">Gợi ý phát triển</h3>
+                    </div>
+                    <p className="text-sm text-muted-foreground">Hướng phát triển cho ứng viên</p>
+                    <ul className="space-y-3 text-sm text-slate-600">
+                      {developmentSuggestions.map((suggestion) => (
+                        <li
+                          key={suggestion}
+                          className="flex items-start gap-2 rounded-2xl bg-purple-50/80 px-4 py-3 text-left shadow-sm"
+                        >
+                          <span className="mt-1 h-2 w-2 rounded-full bg-purple-400 flex-shrink-0" />
+                          <span>{suggestion}</span>
+                        </li>
                       ))}
                     </ul>
                   </div>
                 )}
                 {weaknesses.length > 0 && (
-                  <div className="bg-muted/20 border border-border/60 rounded-2xl p-4 space-y-2">
-                    <h3 className="font-semibold text-foreground flex items-center gap-2">
-                      <AlertTriangle className="w-4 h-4 text-amber-500" />
-                      Điểm cần cải thiện
-                    </h3>
-                    <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
-                      {weaknesses.map((item) => (
-                        <li key={item}>{item}</li>
+                  <div className="bg-amber-50/50 border border-amber-200 rounded-2xl p-6 space-y-3">
+                    <div className="flex items-center gap-3">
+                      <AlertTriangle className="w-6 h-6 text-amber-500" />
+                      <h3 className="text-xl font-semibold text-foreground">Điểm cần cải thiện</h3>
+                    </div>
+                    <p className="text-sm text-muted-foreground">Các kỹ năng cần phát triển thêm</p>
+                    <div className="flex flex-wrap gap-3">
+                      {weaknesses.map((area) => (
+                        <span
+                          key={area}
+                          className="rounded-full bg-amber-100 px-4 py-2 text-sm font-semibold text-amber-700 shadow-sm"
+                        >
+                          {area}
+                        </span>
                       ))}
-                    </ul>
-                  </div>
-                )}
-                {developmentSuggestions.length > 0 && (
-                  <div className="bg-muted/20 border border-border/60 rounded-2xl p-4 space-y-2">
-                    <h3 className="font-semibold text-foreground flex items-center gap-2">
-                      <Lightbulb className="w-4 h-4 text-emerald-500" />
-                      Gợi ý phát triển
-                    </h3>
-                    <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
-                      {developmentSuggestions.map((item) => (
-                        <li key={item}>{item}</li>
-                      ))}
-                    </ul>
+                    </div>
                   </div>
                 )}
               </div>
@@ -462,66 +587,44 @@ export const CandidateDetail = ({ candidateId }: CandidateDetailProps) => {
           </>
         )}
 
-        {(cheatingCount > 0 || cheatingEvents.length > 0 || cheatingSummaryEntries.length > 0) && (
+        {(cheatingCount > 0 || cheatingEvents.length > 0) && (
           <div className="bg-amber-50/70 border border-amber-200 rounded-2xl p-4 space-y-3">
-            <div className="flex items-center gap-2 text-amber-800 font-semibold">
-              <AlertTriangle className="w-4 h-4" />
-              Giám sát và cảnh báo
-            </div>
-            {cheatingCount > 0 && (
-              <p className="text-sm text-amber-800">
-                {cheatingCount} cảnh báo được ghi nhận trong lần đánh giá này.
-              </p>
-            )}
-            {cheatingSummaryEntries.length > 0 && (
-              <ul className="space-y-1 text-sm text-amber-900">
-                {cheatingSummaryEntries.map(({ key, value }) => (
-                  <li key={key} className="flex justify-between gap-2">
-                    <span className="font-medium">{key}</span>
-                    <span className="text-right">{value}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-            {cheatingEvents.length > 0 && (
-              <div className="space-y-2 text-xs text-amber-900">
-                {cheatingEvents.map((event, index) => (
-                  <div
-                    key={`${event.questionId ?? 'event'}-${event.occurredAt ?? index}`}
-                    className="rounded-xl border border-amber-200 bg-white/70 px-3 py-2 flex flex-col gap-1"
-                  >
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <span className="font-semibold">{event.type ?? 'Sự kiện giám sát'}</span>
-                      {event.occurredAt && <span>{formatDate(event.occurredAt)}</span>}
-                    </div>
-                    {event.questionId && <span>Câu hỏi: {shortenId(event.questionId)}</span>}
-                    {event.metadata && <span>{formatDetailValue(event.metadata)}</span>}
-                  </div>
-                ))}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-amber-800 font-semibold">
+                <AlertTriangle className="w-4 h-4" />
+                Giám sát và cảnh báo
               </div>
-            )}
+              {getCheatingBadge(cheatingCount)}
+            </div>
+            
+            {cheatingEvents.length > 0 && (() => {
+              const eventsByType = cheatingEvents.reduce((acc, event) => {
+                const type = event.type ?? 'unknown';
+                acc[type] = (acc[type] || 0) + 1;
+                return acc;
+              }, {} as Record<string, number>);
+              
+              const typeLabels: Record<string, string> = {
+                'tab_switch': 'Chuyển tab',
+                'copy_paste': 'Sao chép/Dán',
+                'unknown': 'Khác',
+              };
+              
+              return (
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  {Object.entries(eventsByType).map(([type, count]) => (
+                    <div key={type} className="bg-white/70 border border-amber-200 rounded-lg px-3 py-2 text-center">
+                      <div className="font-semibold text-amber-900">{count}</div>
+                      <div className="text-xs text-amber-700">{typeLabels[type] || type}</div>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
           </div>
         )}
 
-        {roleFitEntries.length > 0 && (
-          <div className="bg-muted/20 border border-border/60 rounded-2xl p-4 space-y-3">
-            <h3 className="font-semibold text-foreground flex items-center gap-2">
-              <Target className="w-4 h-4" />
-              Mức độ phù hợp vai trò
-            </h3>
-            <div className="space-y-3">
-              {roleFitEntries.map(([roleName, score]) => (
-                <div key={roleName} className="space-y-1">
-                  <div className="flex items-center justify-between text-sm text-muted-foreground">
-                    <span className="text-foreground font-medium">{roleName}</span>
-                    <span>{Math.round(score)}%</span>
-                  </div>
-                  <Progress value={Math.round(score)} className="h-2" />
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+
 
         {(timeAnalysisEntries.length > 0 || personalityTraitEntries.length > 0) && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -627,34 +730,7 @@ export const CandidateDetail = ({ candidateId }: CandidateDetailProps) => {
 
         </div>
 
-        {skillEntries.length > 0 && (
-          <div>
-            <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2">
-              <Trophy className="w-4 h-4" />
-              Điểm số chi tiết
-            </h3>
-            <div className="space-y-4">
-              {skillEntries.map(([skill, value]) => {
-                const icon = skillIcons[skill as keyof typeof skillIcons] ?? <Target className="w-4 h-4 text-primary/70" />;
-                const label = formatSkillLabel(skill);
-                const progressValue = Math.max(0, Math.min(100, value));
 
-                return (
-                  <div key={skill} className="space-y-2">
-                    <div className="flex justify-between items-center">
-                      <div className="flex items-center gap-2">
-                        {icon}
-                        <span className="text-sm font-medium">{label}</span>
-                      </div>
-                      <span className={`font-bold text-lg ${getScoreColor(value)}`}>{Math.round(value)}</span>
-                    </div>
-                    <Progress value={progressValue} className="h-2" />
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
 
         <div className="pt-4 border-t">
           <Button
@@ -674,6 +750,79 @@ export const CandidateDetail = ({ candidateId }: CandidateDetailProps) => {
           </Button>
         </div>
       </div>
+
+      {/* Answers Dialog */}
+      <Dialog open={showAnswersDialog} onOpenChange={setShowAnswersDialog}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="w-5 h-5" />
+              Câu trả lời của ứng viên
+            </DialogTitle>
+            <DialogDescription>
+              Chi tiết các câu trả lời trong bài đánh giá {candidate.fullName}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 mt-4">
+            {answers.map((answer, index) => (
+              <div
+                key={answer.questionId}
+                className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3"
+              >
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className="font-semibold">
+                    Câu {index + 1}
+                  </Badge>
+                  {answer.questionFormat === 'multiple_choice' && (
+                    <Badge variant="secondary" className="text-xs">
+                      Trắc nghiệm
+                    </Badge>
+                  )}
+                </div>
+                
+                <p className="text-sm font-medium text-slate-800">
+                  {answer.questionText}
+                </p>
+                
+                {answer.questionFormat === 'multiple_choice' && answer.allOptions && answer.allOptions.length > 0 ? (
+                  <div className="space-y-2">
+                    {answer.allOptions.map((option, optIndex) => {
+                      const isSelected = optIndex === answer.selectedOptionIndex;
+                      return (
+                        <div
+                          key={optIndex}
+                          className={`rounded-lg p-3 border-2 transition-colors ${
+                            isSelected
+                              ? 'bg-blue-50 border-blue-500'
+                              : 'bg-white border-slate-200'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            {isSelected && (
+                              <CheckCircle className="w-4 h-4 text-blue-600 flex-shrink-0" />
+                            )}
+                            <p className={`text-sm ${isSelected ? 'text-blue-900 font-medium' : 'text-slate-700'}`}>
+                              {option}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="bg-white border border-slate-200 rounded-lg p-3">
+                    <p className="text-xs text-slate-600 mb-1">Câu trả lời:</p>
+                    <p className="text-sm text-slate-900 whitespace-pre-wrap">
+                      {answer.userAnswer || 'Chưa trả lời'}
+                    </p>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 };
