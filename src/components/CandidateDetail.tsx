@@ -28,7 +28,8 @@ import {
 } from '@/components/ui/dialog';
 import { getScoreColor, getBandColor } from '@/lib/utils';
 import { useToast } from '@/components/ui/use-toast';
-import { getCandidateDetails, getCandidateAnswers, type CandidateDetailSummary, type CandidateAttemptSummary, type CandidateAttemptStatus, type CandidateAnswer } from '@/lib/api';
+// COMMENTED OUT: getCandidateAnswers import - feature is currently broken
+import { getCandidateDetails, /* getCandidateAnswers, */ type CandidateDetailSummary, type CandidateAttemptSummary, type CandidateAttemptStatus, /* type CandidateAnswer */ } from '@/lib/api';
 import { EMPTY_VALUE, formatDetailValue, parseStructuredSummary, toDisplayEntries } from '@/lib/ai/structuredSummary';
 
 const statusConfig: Record<CandidateAttemptStatus | 'not_started', { label: string; className: string }> = {
@@ -117,9 +118,10 @@ interface CandidateDetailProps {
 export const CandidateDetail = ({ candidateId }: CandidateDetailProps) => {
   const { toast } = useToast();
   const [candidate, setCandidate] = useState<CandidateDetailSummary | null>(null);
-  const [answers, setAnswers] = useState<CandidateAnswer[]>([]);
-  const [loadingAnswers, setLoadingAnswers] = useState(false);
-  const [showAnswersDialog, setShowAnswersDialog] = useState(false);
+  // COMMENTED OUT: Answers dialog state - feature is currently broken
+  // const [answers, setAnswers] = useState<CandidateAnswer[]>([]);
+  // const [loadingAnswers, setLoadingAnswers] = useState(false);
+  // const [showAnswersDialog, setShowAnswersDialog] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -139,8 +141,18 @@ export const CandidateDetail = ({ candidateId }: CandidateDetailProps) => {
     fetchCandidate();
   }, [candidateId]);
 
+  // COMMENTED OUT: openAnswersDialog function - feature is currently broken
+  // TODO: Re-enable when answers_snapshot feature is fixed
+  /*
   const openAnswersDialog = async () => {
-    if (!candidate?.attempt?.id) return;
+    if (!candidate?.attempt?.id) {
+      toast({
+        title: 'Lỗi',
+        description: 'Không tìm thấy thông tin bài đánh giá.',
+        variant: 'destructive',
+      });
+      return;
+    }
     
     // If answers already loaded, just show dialog
     if (answers.length > 0) {
@@ -151,7 +163,20 @@ export const CandidateDetail = ({ candidateId }: CandidateDetailProps) => {
     // Otherwise, fetch answers
     setLoadingAnswers(true);
     try {
+      console.log('[CandidateDetail] Fetching answers for attempt:', candidate.attempt.id);
       const data = await getCandidateAnswers(candidate.attempt.id);
+      console.log('[CandidateDetail] Received answers:', {
+        count: data.length,
+        sample: data[0],
+      });
+      
+      if (data.length === 0) {
+        toast({
+          title: 'Thông báo',
+          description: 'Chưa có câu trả lời nào được lưu cho bài đánh giá này.',
+        });
+      }
+      
       setAnswers(data);
       setShowAnswersDialog(true);
     } catch (err) {
@@ -165,6 +190,7 @@ export const CandidateDetail = ({ candidateId }: CandidateDetailProps) => {
       setLoadingAnswers(false);
     }
   };
+  */
 
   const attempt = candidate?.attempt;
   const attemptStatus = attempt?.status ?? 'not_started';
@@ -379,6 +405,9 @@ export const CandidateDetail = ({ candidateId }: CandidateDetailProps) => {
                 Đã trả lời {attempt.answeredCount}/{attempt.totalQuestions} câu ({Math.round(attempt.progressPercent)}%)
               </p>
             </div>
+            {/* COMMENTED OUT: View answers button - feature is currently broken */}
+            {/* TODO: Re-enable when answers_snapshot feature is fixed */}
+            {/*
             {attempt.status === 'completed' && (
               <div className="pt-3 border-t border-border/40">
                 <Button
@@ -393,6 +422,7 @@ export const CandidateDetail = ({ candidateId }: CandidateDetailProps) => {
                 </Button>
               </div>
             )}
+            */}
           </div>
         ) : (
           <div className="bg-muted/20 border border-border/60 rounded-2xl p-4 text-sm text-muted-foreground">
@@ -760,7 +790,9 @@ export const CandidateDetail = ({ candidateId }: CandidateDetailProps) => {
         </div>
       </div>
 
-      {/* Answers Dialog */}
+      {/* COMMENTED OUT: Answers Dialog - feature is currently broken */}
+      {/* TODO: Re-enable when answers_snapshot feature is fixed */}
+      {/*
       <Dialog open={showAnswersDialog} onOpenChange={setShowAnswersDialog}>
         <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
@@ -774,7 +806,13 @@ export const CandidateDetail = ({ candidateId }: CandidateDetailProps) => {
           </DialogHeader>
           
           <div className="space-y-4 mt-4">
-            {answers.map((answer, index) => {
+            {answers.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <FileText className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                <p>Chưa có câu trả lời nào được lưu.</p>
+                <p className="text-sm mt-2">Ứng viên có thể chưa hoàn thành bài đánh giá hoặc dữ liệu chưa được đồng bộ.</p>
+              </div>
+            ) : answers.map((answer, index) => {
               const isMultipleChoice = answer.questionFormat === 'multiple_choice';
               const isAnswered = answer.userAnswer !== null && answer.userAnswer !== '';
               const isCorrect = isAnswered && answer.isCorrect === true;
@@ -888,6 +926,7 @@ export const CandidateDetail = ({ candidateId }: CandidateDetailProps) => {
           </div>
         </DialogContent>
       </Dialog>
+      */}
     </Card>
   );
 };

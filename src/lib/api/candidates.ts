@@ -414,6 +414,10 @@ export interface CandidateAnswer {
 export const getCandidateAnswers = async (attemptId: string): Promise<CandidateAnswer[]> => {
   console.log('[getCandidateAnswers] Fetching answers for attempt:', attemptId);
   
+  // COMMENTED OUT: Try to get answers from answers_snapshot
+  // REASON: Feature is currently broken and causing issues
+  // TODO: Re-enable when fixed
+  /*
   // First, try to get answers from answers_snapshot (faster, no joins needed)
   const { data: attemptData, error: attemptError } = await supabase
     .from('interview_assessment_attempts')
@@ -431,18 +435,30 @@ export const getCandidateAnswers = async (attemptId: string): Promise<CandidateA
     });
     
     if (Array.isArray(snapshot) && snapshot.length > 0) {
-      const mappedAnswers = snapshot.map((item: any) => ({
-        questionNumber: item.questionNumber ?? item.question_number,
-        questionId: item.questionId ?? item.question_id,
-        questionText: item.questionText ?? item.question_text ?? 'Unknown question',
-        questionFormat: item.questionFormat ?? item.question_format ?? 'unknown',
-        userAnswer: item.userAnswer ?? item.user_answer ?? null,
-        selectedOptionIndex: item.selectedOptionIndex ?? item.selected_option_index ?? null,
-        allOptions: item.allOptions ?? item.all_options ?? [],
-        correctAnswer: item.correctAnswer ?? item.correct_answer ?? null,
-        isCorrect: item.isCorrect ?? item.is_correct ?? null,
-        answeredAt: item.answeredAt ?? item.answered_at ?? new Date().toISOString(),
-      }));
+      const mappedAnswers = snapshot.map((item: Record<string, unknown>) => {
+        // Debug log to see what we're getting from the snapshot
+        console.log('[getCandidateAnswers] Processing snapshot item:', {
+          questionId: item.questionId,
+          questionFormat: item.questionFormat,
+          userAnswer: item.userAnswer,
+          selectedOptionIndex: item.selectedOptionIndex,
+          isCorrect: item.isCorrect,
+          allOptions: item.allOptions,
+        });
+        
+        return {
+          questionNumber: (item.questionNumber ?? item.question_number) as number | undefined,
+          questionId: (item.questionId ?? item.question_id) as string,
+          questionText: (item.questionText ?? item.question_text ?? 'Unknown question') as string,
+          questionFormat: (item.questionFormat ?? item.question_format ?? 'unknown') as string,
+          userAnswer: (item.userAnswer ?? item.user_answer ?? null) as string | null,
+          selectedOptionIndex: (item.selectedOptionIndex ?? item.selected_option_index ?? null) as number | null,
+          allOptions: (item.allOptions ?? item.all_options ?? []) as string[],
+          correctAnswer: (item.correctAnswer ?? item.correct_answer ?? null) as string | null,
+          isCorrect: (item.isCorrect ?? item.is_correct ?? null) as boolean | null,
+          answeredAt: (item.answeredAt ?? item.answered_at ?? new Date().toISOString()) as string,
+        };
+      });
       
       console.log('[getCandidateAnswers] Returning mapped answers:', mappedAnswers.length);
       return mappedAnswers;
@@ -450,6 +466,7 @@ export const getCandidateAnswers = async (attemptId: string): Promise<CandidateA
   }
 
   console.warn('answers_snapshot not available, falling back to interview_answers table');
+  */
 
   // Fallback to old method if snapshot doesn't exist
   // Try to query by attempt_id first (if migration has been run)
@@ -559,18 +576,18 @@ export const getCandidateAnswers = async (attemptId: string): Promise<CandidateA
       return [];
     }
 
-    return dataWithResult.map((row: any) => {
+    return dataWithResult.map((row: Record<string, unknown>) => {
       const question = Array.isArray(row.question) ? row.question[0] : row.question;
       const selectedOption = Array.isArray(row.selected_option) ? row.selected_option[0] : row.selected_option;
       
       return {
-        questionId: row.question_id,
-        questionText: question?.text ?? 'Unknown question',
-        questionFormat: question?.format ?? 'unknown',
-        userAnswer: row.user_answer_text ?? selectedOption?.option_text ?? '',
+        questionId: row.question_id as string,
+        questionText: (question as { text?: string })?.text ?? 'Unknown question',
+        questionFormat: (question as { format?: string })?.format ?? 'unknown',
+        userAnswer: (row.user_answer_text ?? (selectedOption as { option_text?: string })?.option_text ?? '') as string,
         selectedOptionIndex: undefined,
         allOptions: [],
-        answeredAt: row.created_at,
+        answeredAt: row.created_at as string,
       } satisfies CandidateAnswer;
     });
   }
@@ -579,18 +596,18 @@ export const getCandidateAnswers = async (attemptId: string): Promise<CandidateA
     return [];
   }
 
-  return dataWithAttempt.map((row: any) => {
+  return dataWithAttempt.map((row: Record<string, unknown>) => {
     const question = Array.isArray(row.question) ? row.question[0] : row.question;
     const selectedOption = Array.isArray(row.selected_option) ? row.selected_option[0] : row.selected_option;
     
     return {
-      questionId: row.question_id,
-      questionText: question?.text ?? 'Unknown question',
-      questionFormat: question?.format ?? 'unknown',
-      userAnswer: row.user_answer_text ?? selectedOption?.option_text ?? '',
+      questionId: row.question_id as string,
+      questionText: (question as { text?: string })?.text ?? 'Unknown question',
+      questionFormat: (question as { format?: string })?.format ?? 'unknown',
+      userAnswer: (row.user_answer_text ?? (selectedOption as { option_text?: string })?.option_text ?? '') as string,
       selectedOptionIndex: undefined,
       allOptions: [],
-      answeredAt: row.created_at,
+      answeredAt: row.created_at as string,
     } satisfies CandidateAnswer;
   });
 };
