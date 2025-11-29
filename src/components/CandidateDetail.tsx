@@ -174,6 +174,14 @@ export const CandidateDetail = ({ candidateId }: CandidateDetailProps) => {
   const recommendedRoles = aiInsights?.recommendedRoles ?? [];
   const developmentSuggestions = aiInsights?.developmentSuggestions ?? [];
   const analysisCompletedAt = aiInsights?.analysisCompletedAt ? formatDate(aiInsights.analysisCompletedAt) : null;
+  
+  console.log('[CandidateDetail] Attempt data:', {
+    hasAttempt: !!attempt,
+    assessmentTitle: attempt?.assessmentTitle,
+    assessmentRole: attempt?.assessmentRole,
+    hasAiInsights: !!aiInsights,
+    teamFit: aiInsights?.teamFit,
+  });
   const { sections: structuredSummarySections } = useMemo(
     () => parseStructuredSummary(aiInsights?.summary ?? null),
     [aiInsights?.summary],
@@ -207,16 +215,20 @@ export const CandidateDetail = ({ candidateId }: CandidateDetailProps) => {
 
   const teamFitEntries = useMemo(() => {
     const record = aiInsights?.teamFit;
+    console.log('[CandidateDetail] teamFit raw:', record);
+    
     if (!record) {
       return [] as Array<[string, number]>;
     }
 
     // Handle array of strings (new format) or object (legacy format fallback)
     if (Array.isArray(record)) {
-      return record.map(team => [team, 100] as [string, number]);
+      const entries = record.map(team => [team, 100] as [string, number]);
+      console.log('[CandidateDetail] teamFitEntries (array):', entries);
+      return entries;
     }
 
-    return Object.entries(record)
+    const entries = Object.entries(record)
       .map(([teamName, rawValue]) => {
         if (rawValue == null) {
           return null;
@@ -229,6 +241,9 @@ export const CandidateDetail = ({ candidateId }: CandidateDetailProps) => {
       })
       .filter((entry): entry is [string, number] => Boolean(entry))
       .sort((a, b) => b[1] - a[1]);
+    
+    console.log('[CandidateDetail] teamFitEntries (object):', entries);
+    return entries;
   }, [aiInsights?.teamFit]);
 
   const timeAnalysisEntries = useMemo(
@@ -302,13 +317,24 @@ export const CandidateDetail = ({ candidateId }: CandidateDetailProps) => {
               {getStatusBadge(attemptStatus)}
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm text-muted-foreground">
-              <div className="flex items-center gap-2 sm:col-span-2">
-                <Target className="w-4 h-4" />
-                Bài test:
-                <span className="text-foreground font-medium">
-                  {attempt.assessmentTitle ?? '—'}
-                </span>
-              </div>
+              {attempt.assessmentTitle && (
+                <div className="flex items-center gap-2 sm:col-span-2">
+                  <Briefcase className="w-4 h-4" />
+                  Tên bài test:
+                  <span className="text-foreground font-medium">
+                    {attempt.assessmentTitle}
+                  </span>
+                </div>
+              )}
+              {attempt.assessmentRole && (
+                <div className="flex items-center gap-2 sm:col-span-2">
+                  <Target className="w-4 h-4" />
+                  Vị trí ứng tuyển:
+                  <span className="text-foreground font-medium">
+                    {attempt.assessmentRole}
+                  </span>
+                </div>
+              )}
               {teamFitEntries.length > 0 && (
                 <div className="flex items-center gap-2 sm:col-span-2">
                   <Users className="w-4 h-4" />
@@ -352,21 +378,6 @@ export const CandidateDetail = ({ candidateId }: CandidateDetailProps) => {
               <p className="mt-1 text-xs text-muted-foreground">
                 Đã trả lời {attempt.answeredCount}/{attempt.totalQuestions} câu ({Math.round(attempt.progressPercent)}%)
               </p>
-            </div>
-            <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-              <Badge variant="outline" className="pointer-events-none">
-                Tổng câu hỏi: {attempt.totalQuestions}
-              </Badge>
-              {attempt.aiStatus && (
-                <Badge variant="outline" className="pointer-events-none border-sky-200 bg-sky-50 text-sky-700">
-                  AI: {attempt.aiStatus}
-                </Badge>
-              )}
-              {attempt.lastAiError && (
-                <Badge variant="outline" className="pointer-events-none border-amber-200 bg-amber-50 text-amber-700">
-                  Lỗi AI: {attempt.lastAiError}
-                </Badge>
-              )}
             </div>
             {attempt.status === 'completed' && (
               <div className="pt-3 border-t border-border/40">
@@ -736,10 +747,8 @@ export const CandidateDetail = ({ candidateId }: CandidateDetailProps) => {
           <Button
             onClick={() => {
               toast({
-                title: 'Đã gửi lời mời phỏng vấn',
-                description: candidate.email
-                  ? `Lời mời đã được gửi đến ${candidate.email}`
-                  : 'Lời mời đã được ghi nhận.',
+                title: 'Chức năng đang phát triển',
+                description: 'Tính năng mời phỏng vấn sẽ sớm được ra mắt.',
               });
             }}
             className="w-full bg-green-600 hover:bg-green-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 py-3"
@@ -765,61 +774,117 @@ export const CandidateDetail = ({ candidateId }: CandidateDetailProps) => {
           </DialogHeader>
           
           <div className="space-y-4 mt-4">
-            {answers.map((answer, index) => (
-              <div
-                key={answer.questionId}
-                className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3"
-              >
-                <div className="flex items-center gap-2">
-                  <Badge variant="outline" className="font-semibold">
-                    Câu {index + 1}
-                  </Badge>
-                  {answer.questionFormat === 'multiple_choice' && (
-                    <Badge variant="secondary" className="text-xs">
-                      Trắc nghiệm
+            {answers.map((answer, index) => {
+              const isMultipleChoice = answer.questionFormat === 'multiple_choice';
+              const isAnswered = answer.userAnswer !== null && answer.userAnswer !== '';
+              const isCorrect = isAnswered && answer.isCorrect === true;
+              const isWrong = isAnswered && answer.isCorrect === false;
+              
+              console.log('[CandidateDetail] Rendering answer:', {
+                index,
+                questionNumber: answer.questionNumber,
+                userAnswer: answer.userAnswer,
+                userAnswerType: typeof answer.userAnswer,
+                userAnswerLength: answer.userAnswer?.length,
+                isAnswered,
+                isCorrect,
+                isWrong,
+              });
+              
+              return (
+                <div
+                  key={answer.questionId}
+                  className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3"
+                >
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Badge variant="outline" className="font-semibold">
+                      Câu {index + 1}
                     </Badge>
+                    {isMultipleChoice && (
+                      <Badge variant="secondary" className="text-xs">
+                        Trắc nghiệm
+                      </Badge>
+                    )}
+                    {!isAnswered && (
+                      <Badge variant="outline" className="text-xs border-amber-300 text-amber-700">
+                        Chưa trả lời
+                      </Badge>
+                    )}
+                    {isCorrect && (
+                      <Badge className="text-xs bg-green-100 text-green-700 border-green-300">
+                        Đúng
+                      </Badge>
+                    )}
+                    {isWrong && (
+                      <Badge className="text-xs bg-red-100 text-red-700 border-red-300">
+                        Sai
+                      </Badge>
+                    )}
+                  </div>
+                  
+                  <p className="text-sm font-medium text-slate-800">
+                    {answer.questionText}
+                  </p>
+                  
+                  {isMultipleChoice && answer.allOptions && answer.allOptions.length > 0 ? (
+                    <div className="space-y-2">
+                      {answer.allOptions.map((option, optIndex) => {
+                        const isSelected = optIndex === answer.selectedOptionIndex;
+                        const isCorrectOption = option === answer.correctAnswer;
+                        
+                        return (
+                          <div
+                            key={optIndex}
+                            className={`rounded-lg p-3 border-2 transition-colors ${
+                              isSelected && isCorrect
+                                ? 'bg-green-50 border-green-500'
+                                : isSelected && isWrong
+                                  ? 'bg-red-50 border-red-500'
+                                  : isCorrectOption
+                                    ? 'bg-green-50 border-green-300'
+                                    : 'bg-white border-slate-200'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2">
+                              {isSelected && isCorrect && (
+                                <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" />
+                              )}
+                              {isSelected && isWrong && (
+                                <X className="w-4 h-4 text-red-600 flex-shrink-0" />
+                              )}
+                              {!isSelected && isCorrectOption && (
+                                <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
+                              )}
+                              <p className={`text-sm ${
+                                isSelected && isCorrect
+                                  ? 'text-green-900 font-medium'
+                                  : isSelected && isWrong
+                                    ? 'text-red-900 font-medium'
+                                    : isCorrectOption
+                                      ? 'text-green-700 font-medium'
+                                      : 'text-slate-700'
+                              }`}>
+                                {option}
+                                {!isSelected && isCorrectOption && (
+                                  <span className="ml-2 text-xs text-green-600">(Đáp án đúng)</span>
+                                )}
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="bg-white border border-slate-200 rounded-lg p-3">
+                      <p className="text-xs text-slate-600 mb-1">Câu trả lời:</p>
+                      <p className="text-sm text-slate-900 whitespace-pre-wrap">
+                        {answer.userAnswer || 'Chưa trả lời'}
+                      </p>
+                    </div>
                   )}
                 </div>
-                
-                <p className="text-sm font-medium text-slate-800">
-                  {answer.questionText}
-                </p>
-                
-                {answer.questionFormat === 'multiple_choice' && answer.allOptions && answer.allOptions.length > 0 ? (
-                  <div className="space-y-2">
-                    {answer.allOptions.map((option, optIndex) => {
-                      const isSelected = optIndex === answer.selectedOptionIndex;
-                      return (
-                        <div
-                          key={optIndex}
-                          className={`rounded-lg p-3 border-2 transition-colors ${
-                            isSelected
-                              ? 'bg-blue-50 border-blue-500'
-                              : 'bg-white border-slate-200'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2">
-                            {isSelected && (
-                              <CheckCircle className="w-4 h-4 text-blue-600 flex-shrink-0" />
-                            )}
-                            <p className={`text-sm ${isSelected ? 'text-blue-900 font-medium' : 'text-slate-700'}`}>
-                              {option}
-                            </p>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="bg-white border border-slate-200 rounded-lg p-3">
-                    <p className="text-xs text-slate-600 mb-1">Câu trả lời:</p>
-                    <p className="text-sm text-slate-900 whitespace-pre-wrap">
-                      {answer.userAnswer || 'Chưa trả lời'}
-                    </p>
-                  </div>
-                )}
-              </div>
-            ))}
+              );
+            })}
           </div>
         </DialogContent>
       </Dialog>

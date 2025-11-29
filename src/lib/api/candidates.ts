@@ -241,7 +241,16 @@ const mapAttemptSummary = (row?: SupabaseAssessmentAttempt | null): CandidateAtt
   const rawProgress = row.progress_percent != null ? Number(row.progress_percent) : calculatedProgress;
   const progressPercent = isCompleted ? 100 : Math.min(100, Math.max(0, rawProgress));
 
-  const assessment = row.assessment?.[0];
+  // Supabase returns object or array depending on query
+  const assessment = Array.isArray(row.assessment) ? row.assessment[0] : row.assessment;
+  
+  console.log('[mapAttemptSummary] Mapping assessment:', {
+    hasAssessment: !!assessment,
+    assessmentRaw: row.assessment,
+    isArray: Array.isArray(row.assessment),
+    title: assessment?.title,
+    targetRole: assessment?.target_role,
+  });
 
   return {
     id: row.id,
@@ -277,15 +286,12 @@ const mapUser = (user: SupabaseCandidateUser, teams: Team[]) => {
   const avatarSource = (user.full_name ?? '').trim();
   const avatarChar = avatarSource ? avatarSource.charAt(0).toUpperCase() : '?';
 
-  // Extract team information from results
-  const latestResult = user.results?.[0];
-  // Get team information from the team_fit JSONB field (array of team IDs)
-  const teamFit = latestResult?.team_fit;
+  // Extract team information from aiInsights (already mapped to team names)
   let recommendedTeam = null;
   
-  if (teamFit && Array.isArray(teamFit) && teamFit.length > 0) {
-    const firstTeamId = teamFit[0];
-    const team = teams.find(t => t.id === firstTeamId);
+  if (aiInsights?.teamFit && aiInsights.teamFit.length > 0) {
+    const firstTeamName = aiInsights.teamFit[0];
+    const team = teams.find(t => t.name === firstTeamName);
     if (team) {
       recommendedTeam = {
         id: team.id,
@@ -393,16 +399,21 @@ export const getCandidates = async (): Promise<CandidateSummary[]> => {
 };
 
 export interface CandidateAnswer {
+  questionNumber?: number;
   questionId: string;
   questionText: string;
   questionFormat: string;
-  userAnswer: string;
-  selectedOptionIndex?: number;
+  userAnswer: string | null;
+  selectedOptionIndex?: number | null;
   allOptions?: string[];
+  correctAnswer?: string | null;
+  isCorrect?: boolean | null;
   answeredAt: string;
 }
 
 export const getCandidateAnswers = async (attemptId: string): Promise<CandidateAnswer[]> => {
+  console.log('[getCandidateAnswers] Fetching answers for attempt:', attemptId);
+  
   // First, try to get answers from answers_snapshot (faster, no joins needed)
   const { data: attemptData, error: attemptError } = await supabase
     .from('interview_assessment_attempts')
@@ -413,16 +424,28 @@ export const getCandidateAnswers = async (attemptId: string): Promise<CandidateA
   if (!attemptError && attemptData?.answers_snapshot) {
     // Parse and return the snapshot
     const snapshot = attemptData.answers_snapshot;
+    console.log('[getCandidateAnswers] Found answers_snapshot:', {
+      isArray: Array.isArray(snapshot),
+      length: Array.isArray(snapshot) ? snapshot.length : 0,
+      snapshot,
+    });
+    
     if (Array.isArray(snapshot) && snapshot.length > 0) {
-      return snapshot.map((item: any) => ({
+      const mappedAnswers = snapshot.map((item: any) => ({
+        questionNumber: item.questionNumber ?? item.question_number,
         questionId: item.questionId ?? item.question_id,
         questionText: item.questionText ?? item.question_text ?? 'Unknown question',
         questionFormat: item.questionFormat ?? item.question_format ?? 'unknown',
-        userAnswer: item.userAnswer ?? item.user_answer ?? '',
-        selectedOptionIndex: item.selectedOptionIndex ?? item.selected_option_index,
+        userAnswer: item.userAnswer ?? item.user_answer ?? null,
+        selectedOptionIndex: item.selectedOptionIndex ?? item.selected_option_index ?? null,
         allOptions: item.allOptions ?? item.all_options ?? [],
+        correctAnswer: item.correctAnswer ?? item.correct_answer ?? null,
+        isCorrect: item.isCorrect ?? item.is_correct ?? null,
         answeredAt: item.answeredAt ?? item.answered_at ?? new Date().toISOString(),
       }));
+      
+      console.log('[getCandidateAnswers] Returning mapped answers:', mappedAnswers.length);
+      return mappedAnswers;
     }
   }
 
