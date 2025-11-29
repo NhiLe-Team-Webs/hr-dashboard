@@ -170,18 +170,31 @@ export const mapAiInsights = (rows?: SupabaseResultRow[] | null, teams?: Team[])
   const recommendedRoles = normaliseStringList(latest.recommended_roles);
   const developmentSuggestions = normaliseStringList(latest.development_suggestions);
   
-  // Map team IDs to team names
+  // Try to get team_fit from summary first (array of team names)
   let teamFit: string[] | undefined = undefined;
-  if (latest.team_fit && Array.isArray(latest.team_fit) && teams) {
-    teamFit = latest.team_fit
-      .map(teamId => {
-        const team = teams.find(t => t.id === teamId);
-        return team?.name;
-      })
-      .filter((name): name is string => Boolean(name));
-    
-    if (teamFit.length === 0) {
-      teamFit = undefined;
+  
+  // First, try to extract from summary JSON
+  if (latest.summary && typeof latest.summary === 'object') {
+    const summaryObj = latest.summary as Record<string, unknown>;
+    if ('team_fit' in summaryObj) {
+      const summaryTeamFit = summaryObj.team_fit;
+      if (Array.isArray(summaryTeamFit)) {
+        teamFit = summaryTeamFit
+          .map(item => typeof item === 'string' ? item.trim() : null)
+          .filter((name): name is string => Boolean(name));
+        
+        if (teamFit.length === 0) {
+          teamFit = undefined;
+        }
+      }
+    }
+  }
+  
+  // Fallback: Map team ID to team name if summary doesn't have it
+  if (!teamFit && latest.team_fit && typeof latest.team_fit === 'string' && teams) {
+    const team = teams.find(t => t.id === latest.team_fit);
+    if (team) {
+      teamFit = [team.name];
     }
   }
   

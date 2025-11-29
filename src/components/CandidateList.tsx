@@ -5,13 +5,9 @@ import {
   Calendar,
   UserCheck,
   Mail,
-  Send,
   AlertCircle,
   Target,
-  AlertTriangle,
-  Briefcase,
   Sparkles,
-  Timer,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -21,9 +17,7 @@ import { CandidateDetail } from '@/components/CandidateDetail';
 import { getCandidates, type CandidateSummary, type CandidateAttemptSummary, type CandidateAttemptStatus } from '@/lib/api';
 import { EMPTY_VALUE, parseStructuredSummary } from '@/lib/ai/structuredSummary';
 import { getBandColor, getScoreColor } from '@/lib/utils';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { useToast } from '@/components/ui/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
@@ -92,10 +86,6 @@ export const CandidateList = () => {
   const [candidates, setCandidates] = useState<CandidateSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [emailList, setEmailList] = useState('');
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [emailValidationError, setEmailValidationError] = useState('');
-  const [inviteMessage, setInviteMessage] = useState('Chào bạn, mời bạn tham gia bài đánh giá năng lực của chúng tôi.');
   const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -157,47 +147,7 @@ export const CandidateList = () => {
     setIsDetailOpen(true);
   };
 
-  const validateEmailList = (emailText: string) => {
-    if (!emailText.trim()) {
-      setEmailValidationError('');
-      return true;
-    }
 
-    const emailArray = emailText
-      .split(/[,\n]/)
-      .map((email) => email.trim())
-      .filter((email) => email.length > 0);
-
-    const invalidEmail = emailArray.find((email) => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email));
-    if (invalidEmail) {
-      setEmailValidationError(`Email không đúng định dạng: ${invalidEmail}`);
-      return false;
-    }
-
-    const lowerCaseEmails = emailArray.map((email) => email.toLowerCase());
-    if (lowerCaseEmails.length !== new Set(lowerCaseEmails).size) {
-      setEmailValidationError('Có email trùng lặp trong danh sách');
-      return false;
-    }
-
-    const missingComma = /[a-zA-Z]{2,}\s+[a-zA-Z]{2,}@/.test(emailText);
-    if (missingComma) {
-      setEmailValidationError('Có thể thiếu dấu phẩy giữa các email');
-      return false;
-    }
-
-    setEmailValidationError('');
-    return true;
-  };
-
-  const handleEmailListChange = (value: string) => {
-    setEmailList(value);
-    if (emailValidationError) {
-      setEmailValidationError('');
-    }
-  };
-
-  const handleEmailListBlur = () => validateEmailList(emailList);
 
   if (loading) {
     return <div className="text-center p-8">Đang tải danh sách ứng viên...</div>;
@@ -222,65 +172,18 @@ export const CandidateList = () => {
           <h1 className="text-2xl font-bold tracking-tight">Danh sách Ứng viên</h1>
           <p className="text-muted-foreground">Quản lý và đánh giá hồ sơ ứng viên</p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="gap-2">
-              <Plus className="w-4 h-4" />
-              Mời ứng viên
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Mời ứng viên mới</DialogTitle>
-              <DialogDescription>
-                Nhập danh sách email (ngăn cách bởi dấu phẩy hoặc xuống dòng) và lời nhắn mời tham gia bài đánh giá.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4 mt-4">
-              <div className="space-y-2">
-                <Label>Email ứng viên</Label>
-                <Textarea
-                  placeholder="candidate1@example.com, candidate2@example.com"
-                  value={emailList}
-                  onChange={(event) => handleEmailListChange(event.target.value)}
-                  onBlur={handleEmailListBlur}
-                  rows={4}
-                />
-                {emailValidationError && (
-                  <p className="text-sm text-red-500 flex items-center gap-2">
-                    <AlertCircle className="w-4 h-4" />
-                    {emailValidationError}
-                  </p>
-                )}
-              </div>
-              <div className="space-y-2">
-                <Label>Lời nhắn</Label>
-                <Textarea
-                  placeholder="Chào bạn, ..."
-                  value={inviteMessage}
-                  onChange={(event) => setInviteMessage(event.target.value)}
-                  rows={3}
-                />
-              </div>
-              <Button
-                className="w-full gap-2"
-                onClick={() => {
-                  if (!validateEmailList(emailList)) {
-                    return;
-                  }
-                  setIsDialogOpen(false);
-                  toast({
-                    title: 'Đã gửi lời mời',
-                    description: 'Email đã được gửi cho ứng viên.',
-                  });
-                }}
-              >
-                <Send className="w-4 h-4" />
-                Gửi lời mời
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+        <Button 
+          className="gap-2"
+          onClick={() => {
+            toast({
+              title: 'Chức năng đang phát triển',
+              description: 'Tính năng mời ứng viên qua email sẽ sớm được ra mắt.',
+            });
+          }}
+        >
+          <Plus className="w-4 h-4" />
+          Mời ứng viên
+        </Button>
       </div>
 
       {/* Search and Filters */}
@@ -381,9 +284,9 @@ export const CandidateList = () => {
                             </Badge>
                           )}
                         </div>
-                        <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+                        <div className="space-y-2">
                           <div className="flex items-center gap-1 min-w-0">
-                            <Mail className="w-3 h-3 flex-shrink-0" />
+                            <Mail className="w-3 h-3 flex-shrink-0 text-muted-foreground" />
                             <button
                               onClick={async (event) => {
                                 event.stopPropagation();
@@ -399,88 +302,36 @@ export const CandidateList = () => {
                                   }
                                 }
                               }}
-                              className="truncate hover:text-primary hover:underline transition-colors cursor-pointer"
+                              className="text-sm truncate hover:text-primary hover:underline transition-colors cursor-pointer"
                             >
                               {candidate.email ?? '—'}
                             </button>
                           </div>
-                          {assessmentTitle && (
-                            <div className="flex items-center gap-1 text-sm">
-                              <Briefcase className="w-3 h-3" />
-                              <span className="text-muted-foreground">Bài đánh giá:</span>
-                              <span className="text-foreground font-medium truncate max-w-[12rem]">
-                                {assessmentTitle}
-                              </span>
-                            </div>
-                          )}
-                          {assessmentRole && (
-                            <div className="flex items-center gap-1 text-sm">
-                              <Target className="w-3 h-3" />
-                              <span className="text-muted-foreground">Vị trí mục tiêu:</span>
-                              <span className="text-foreground font-medium truncate max-w-[10rem]">
+                          
+                          <div className="flex flex-wrap items-center gap-2 text-xs">
+                            {assessmentRole && (
+                              <Badge variant="outline" className="flex items-center gap-1">
+                                <Target className="w-3 h-3" />
                                 {assessmentRole}
-                              </span>
-                            </div>
-                          )}
-                          <div className="flex items-center gap-1 text-sm">
-                            <UserCheck className="w-3 h-3" />
-                            <span className="text-muted-foreground">Team:</span>
-                            <span className="text-foreground font-medium truncate max-w-[10rem]">
-                              {candidate.recommendedTeam?.name ?? 'Not assigned'}
-                            </span>
-                          </div>
-                        </div>
-                        {(summaryPreviewSections.length > 0 || summaryPlainText) && (
-                          <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-                            {summaryPreviewSections.map((section, index) => {
-                              const sectionKey = section.id ? `${section.id}-${index}` : `candidate-summary-${index}`;
-                              const sectionTitle = section.title && section.title !== EMPTY_VALUE ? section.title : 'Tổng quan';
-                              const bulletItems = section.bullets
-                                ?.filter((item) => item && item !== EMPTY_VALUE)
-                                ?.slice(0, 3) ?? [];
-                              const contentChips = section.content
-                                ?.filter((entry) => entry.value && entry.value !== EMPTY_VALUE)
-                                ?.slice(0, 3) ?? [];
-                              return (
-                                <div
-                                  key={sectionKey}
-                                  className="rounded-xl border border-border/40 bg-muted/30 px-3 py-3 shadow-sm"
-                                >
-                                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                                    {sectionTitle}
-                                  </p>
-                                  {section.description && section.description !== EMPTY_VALUE && (
-                                    <p className="mt-1 text-sm text-muted-foreground leading-relaxed">{section.description}</p>
-                                  )}
-                                  {bulletItems.length > 0 && (
-                                    <ul className="mt-2 space-y-1 text-xs text-muted-foreground list-disc list-inside">
-                                      {bulletItems.map((item, bulletIndex) => (
-                                        <li key={`${sectionKey}-bullet-${bulletIndex}`}>{item}</li>
-                                      ))}
-                                    </ul>
-                                  )}
-                                  {contentChips.length > 0 && (
-                                    <div className="mt-2 flex flex-wrap gap-2">
-                                      {contentChips.map((entry, chipIndex) => (
-                                        <span
-                                          key={`${sectionKey}-chip-${chipIndex}`}
-                                          className="rounded-full bg-background px-2 py-1 text-xs font-medium text-foreground shadow-sm"
-                                        >
-                                          {entry.label}: {entry.value}
-                                        </span>
-                                      ))}
-                                    </div>
-                                  )}
-                                </div>
-                              );
-                            })}
-                            {summaryPlainText && (
-                              <p className="md:col-span-2 rounded-xl border border-border/40 bg-muted/20 px-3 py-3 text-sm text-muted-foreground leading-relaxed">
-                                {summaryPlainText}
-                              </p>
+                              </Badge>
+                            )}
+                            {candidate.aiInsights?.teamFit && candidate.aiInsights.teamFit.length > 0 && (
+                              <>
+                                {candidate.aiInsights.teamFit.slice(0, 2).map((team) => (
+                                  <Badge key={team} variant="secondary" className="flex items-center gap-1">
+                                    <UserCheck className="w-3 h-3" />
+                                    {team}
+                                  </Badge>
+                                ))}
+                                {candidate.aiInsights.teamFit.length > 2 && (
+                                  <Badge variant="secondary">
+                                    +{candidate.aiInsights.teamFit.length - 2} team
+                                  </Badge>
+                                )}
+                              </>
                             )}
                           </div>
-                        )}
+                        </div>
                       </div>
                     </div>
                     <div className="flex flex-col items-end gap-2 text-right">
@@ -511,62 +362,11 @@ export const CandidateList = () => {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 text-sm text-muted-foreground">
-                    {startedAt && (
-                      <div className="flex items-center gap-2 rounded-xl border border-slate-200/70 bg-slate-50/50 px-3 py-2">
-                        <Calendar className="w-4 h-4 text-slate-500" />
-                        <div className="flex flex-col">
-                          <span className="text-xs uppercase tracking-wide text-slate-500">Ngày bắt đầu</span>
-                          <span className="text-foreground font-medium">{startedAt}</span>
-                        </div>
-                      </div>
-                    )}
-                    {durationLabel && (
-                      <div className="flex items-center gap-2 rounded-xl border border-slate-200/70 bg-slate-50/50 px-3 py-2">
-                        <Timer className="w-4 h-4 text-slate-500" />
-                        <div className="flex flex-col">
-                          <span className="text-xs uppercase tracking-wide text-slate-500">Thời lượng</span>
-                          <span className="text-foreground font-medium">{durationLabel}</span>
-                        </div>
-                      </div>
-                    )}
-                    {aiStatusLabel && (
-                      <div className="flex items-center gap-2 rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-sky-700">
-                        <Sparkles className="w-4 h-4" />
-                        <div className="flex flex-col">
-                          <span className="text-xs uppercase tracking-wide">AI</span>
-                          <span className="text-sm font-medium text-sky-800">{aiStatusLabel}</span>
-                        </div>
-                      </div>
-                    )}
-                    {hasCheatingAlerts && (
-                      <div className="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-amber-800">
-                        <AlertTriangle className="w-4 h-4" />
-                        <div className="flex flex-col">
-                          <span className="text-xs uppercase tracking-wide">Giám sát</span>
-                          <span className="text-sm font-medium">{cheatingCount} cảnh báo</span>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {(recommendedRole || topStrengths.length > 0 || topDevelopment.length > 0) && (
+                  {topStrengths.length > 0 && (
                     <div className="flex flex-wrap items-center gap-2 text-xs">
-                      {recommendedRole && (
-                        <Badge className="flex items-center gap-1 bg-primary/10 text-primary border-primary/20">
-                          <Briefcase className="w-3 h-3" />
-                          {recommendedRole}
-                        </Badge>
-                      )}
                       {topStrengths.map((item) => (
                         <Badge key={item} variant="secondary" className="flex items-center gap-1">
                           <Sparkles className="w-3 h-3" />
-                          {item}
-                        </Badge>
-                      ))}
-                      {topDevelopment.map((item) => (
-                        <Badge key={item} variant="outline" className="flex items-center gap-1 border-amber-300 text-amber-700">
-                          <AlertTriangle className="w-3 h-3" />
                           {item}
                         </Badge>
                       ))}
