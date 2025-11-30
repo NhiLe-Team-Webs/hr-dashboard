@@ -1,6 +1,6 @@
-// src/types/supabase.ts
+// src/types/candidate.ts
 
-// Interfaces for the Users table
+// Interfaces for Users table
 export interface ProfileUpdates {
   full_name?: string;
   email?: string;
@@ -8,18 +8,18 @@ export interface ProfileUpdates {
   band?: string;
 }
 
-// Interfaces for the Analytics data returned by the Supabase query
-export interface SupabaseAnalyticsUser {
+// Interfaces for Analytics data returned by backend query
+export interface AnalyticsUser {
   auth_id: string;
   full_name: string;
   band: string | null;
 }
 
-export interface SupabaseAnalyticsAssessment {
+export interface AnalyticsAssessment {
   target_role: string;
 }
 
-export interface SupabaseAnalyticsData {
+export interface AnalyticsData {
   skill_scores: Record<string, unknown> | null;
   strengths: unknown;
   weaknesses: unknown;
@@ -30,17 +30,17 @@ export interface SupabaseAnalyticsData {
   analysis_model: string | null;
   analysis_completed_at: string | null;
   team_fit: string[] | null;
-  user: SupabaseAnalyticsUser;
-  assessment: SupabaseAnalyticsAssessment;
+  user: AnalyticsUser;
+  assessment: AnalyticsAssessment;
 }
 
-// Interface for the roles data returned by the Supabase query
-export interface SupabaseRoleData {
+// Interface for roles data returned by backend query
+export interface RoleData {
   target_role: string;
 }
 
-// Interface for the questions data returned by the Supabase query
-export interface SupabaseQuestionData {
+// Interface for questions data returned by backend query
+export interface QuestionData {
   id: string;
   text: string;
   type: string;

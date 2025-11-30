@@ -118,7 +118,7 @@ export const CandidateList = () => {
 
   const filteredCandidates = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
-    
+
     return candidates.filter((candidate) => {
       // Apply search filter
       const name = candidate.fullName ?? '';
@@ -129,17 +129,17 @@ export const CandidateList = () => {
         email.toLowerCase().includes(query) ||
         role.toLowerCase().includes(query)
       );
-      
+
       // Apply team filter
-      const matchesTeam = selectedTeam === 'all' || 
+      const matchesTeam = selectedTeam === 'all' ||
         (selectedTeam === 'unassigned' && !candidate.recommendedTeam) ||
         candidate.recommendedTeam?.name === selectedTeam;
-      
+
       return matchesSearch && matchesTeam;
     });
   }, [candidates, searchTerm, selectedTeam]);
 
-  const selectedCandidate = candidates.find((c) => c.id === selectedCandidateId) ?? null;
+  const selectedCandidate = candidates.find((c) => c.authId === selectedCandidateId) ?? null;
   const isDetailDialogOpen = isDetailOpen && Boolean(selectedCandidate);
 
   const handleCandidateClick = (candidateId: string) => {
@@ -147,15 +147,13 @@ export const CandidateList = () => {
     setIsDetailOpen(true);
   };
 
-
-
   if (loading) {
     return <div className="text-center p-8">Đang tải danh sách ứng viên...</div>;
   }
 
   if (error) {
     return (
-      <Card className="p-8"> 
+      <Card className="p-8">
         <div className="flex items-center gap-2 text-red-600">
           <AlertCircle className="w-5 h-5" />
           <span>{error}</span>
@@ -172,7 +170,7 @@ export const CandidateList = () => {
           <h1 className="text-2xl font-bold tracking-tight">Danh sách Ứng viên</h1>
           <p className="text-muted-foreground">Quản lý và đánh giá hồ sơ ứng viên</p>
         </div>
-        <Button 
+        <Button
           className="gap-2"
           onClick={() => {
             toast({
@@ -255,12 +253,11 @@ export const CandidateList = () => {
             return (
               <Card
                 key={candidate.id}
-                className={`overflow-hidden cursor-pointer transition-all duration-200 hover:shadow-lg ${
-                  selectedCandidateId === candidate.id
+                className={`overflow-hidden cursor-pointer transition-all duration-200 hover:shadow-lg ${selectedCandidateId === candidate.authId
                     ? 'ring-2 ring-primary/50 shadow-lg'
                     : 'hover:shadow-md hover:scale-[1.02]'
-                }`}
-                onClick={() => handleCandidateClick(candidate.id)}
+                  }`}
+                onClick={() => handleCandidateClick(candidate.authId)}
               >
                 <div className="p-6 space-y-4">
                   <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
@@ -307,7 +304,7 @@ export const CandidateList = () => {
                               {candidate.email ?? '—'}
                             </button>
                           </div>
-                          
+
                           <div className="flex flex-wrap items-center gap-2 text-xs">
                             {assessmentRole && (
                               <Badge variant="outline" className="flex items-center gap-1">
@@ -394,7 +391,7 @@ export const CandidateList = () => {
         }}
       >
         <DialogContent className="max-w-5xl w-[95vw] max-h-[90vh] overflow-y-auto">
-          {selectedCandidate && <CandidateDetail candidateId={selectedCandidate.id} />}
+          {selectedCandidate && <CandidateDetail candidateId={selectedCandidate.authId} />}
         </DialogContent>
       </Dialog>
     </div>

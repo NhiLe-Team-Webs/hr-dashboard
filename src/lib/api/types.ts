@@ -57,6 +57,7 @@ export interface CandidateCheatingEvent {
 
 export interface CandidateSummary {
   id: string;
+  authId: string;
   fullName: string | null;
   email: string | null;
   role: string | null;

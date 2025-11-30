@@ -1,6 +1,6 @@
 // src/components/QuestionEditor/QuestionList.tsx
 import { useState, Dispatch, SetStateAction, useCallback } from 'react';
-import { Plus, Edit3, Trash2, FileText, ChevronDown, ChevronUp, Copy, Loader2 } from 'lucide-react';
+import { Plus, Edit3, Trash2, FileText, ChevronDown, ChevronUp, Copy, Loader2, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { toast } from '@/components/ui/use-toast';
@@ -21,8 +21,8 @@ interface QuestionListProps {
   isLoading: boolean;
 }
 
-const QuestionList: React.FC<QuestionListProps> = ({ 
-  questions, 
+const QuestionList: React.FC<QuestionListProps> = ({
+  questions,
   selectedRole,
   setEditingQuestion,
   setQuestions,
@@ -32,7 +32,7 @@ const QuestionList: React.FC<QuestionListProps> = ({
 }) => {
   const [expandedQuestions, setExpandedQuestions] = useState(new Set<string>());
   const [deletingQuestionId, setDeletingQuestionId] = useState<string | null>(null);
-  
+
   const toggleExpanded = useCallback((questionId: string) => {
     setExpandedQuestions(prev => {
       const newExpanded = new Set(prev);
@@ -44,7 +44,7 @@ const QuestionList: React.FC<QuestionListProps> = ({
       return newExpanded;
     });
   }, []);
-  
+
   const handleDuplicateQuestion = useCallback((question: Question) => {
     const duplicated = { ...question, id: Date.now().toString(), text: `${question.text} (Bản sao)` };
     setQuestions(prev => {
@@ -61,7 +61,14 @@ const QuestionList: React.FC<QuestionListProps> = ({
     if (confirm('Bạn có chắc chắn muốn xóa câu hỏi này?')) {
       setDeletingQuestionId(questionId);
       try {
-        await apiDeleteQuestion(questionId);
+        // Only call API if it's a real backend ID (UUID)
+        // Timestamp IDs (from duplication) are just local state
+        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(questionId);
+
+        if (isUuid) {
+          await apiDeleteQuestion(questionId);
+        }
+
         setQuestions(prev => {
           const newQuestions = {
             ...prev,
@@ -71,6 +78,7 @@ const QuestionList: React.FC<QuestionListProps> = ({
         });
         toast({ title: 'Thành công', description: 'Đã xóa câu hỏi' });
       } catch (error) {
+        console.error('Delete error:', error);
         toast({
           title: 'Lỗi',
           description: 'Không thể xóa câu hỏi.',
@@ -117,7 +125,7 @@ const QuestionList: React.FC<QuestionListProps> = ({
         <div className="p-6 space-y-4">
           {questions.map((question, index) => {
             const isExpanded = expandedQuestions.has(question.id);
-            
+
             return (
               <Card key={question.id} className="overflow-hidden hover:shadow-md transition-all duration-200">
                 <div className="p-4 bg-gray-50 border-b border-gray-100">
@@ -133,6 +141,8 @@ const QuestionList: React.FC<QuestionListProps> = ({
                           </div>
                         )}
                         <span>{question.format === 'text' ? 'Tự luận' : 'Trắc nghiệm'}</span>
+                        <span className="mx-1">•</span>
+                        <span>{question.duration ? `${Math.round(question.duration / 60)} phút` : '5 phút'}</span>
                       </div>
                     </div>
                     <div className="flex items-center gap-1">
@@ -190,10 +200,25 @@ const QuestionList: React.FC<QuestionListProps> = ({
                         {question.options.map((option) => (
                           <div
                             key={option.id}
-                            className="flex items-start gap-3 p-3 rounded-lg border border-gray-200 bg-white text-gray-700"
+                            className={`flex items-start gap-3 p-3 rounded-lg border ${
+                              option.isCorrect 
+                                ? 'border-green-300 bg-green-50' 
+                                : 'border-gray-200 bg-white'
+                            } text-gray-700`}
                           >
-                            <div className="w-2 h-2 mt-2 rounded-full bg-gray-300"></div>
+                            {option.isCorrect ? (
+                              <div className="w-5 h-5 mt-0.5 rounded-full bg-green-600 flex items-center justify-center flex-shrink-0">
+                                <Check className="w-3 h-3 text-white" />
+                              </div>
+                            ) : (
+                              <div className="w-2 h-2 mt-2 rounded-full bg-gray-300"></div>
+                            )}
                             <span className="flex-1 text-sm leading-relaxed">{option.text}</span>
+                            {option.isCorrect && (
+                              <span className="text-xs font-medium text-green-700 bg-green-100 px-2 py-1 rounded">
+                                Đáp án đúng
+                              </span>
+                            )}
                           </div>
                         ))}
                       </div>

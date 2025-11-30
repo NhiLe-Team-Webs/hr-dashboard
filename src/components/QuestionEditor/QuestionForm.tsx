@@ -45,7 +45,7 @@ const cloneOptions = (options?: QuestionOption[]): QuestionOption[] => {
 
   return options.map((option) => ({
     ...option,
-    isCorrect: undefined,
+    isCorrect: option.isCorrect || false,
   }));
 };
 
@@ -370,7 +370,7 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
           .filter((option) => option.text.trim())
           .map((option) => ({
             ...option,
-            isCorrect: undefined,
+            isCorrect: option.isCorrect || false,
           }))
       : undefined;
 
@@ -415,9 +415,10 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
 
       onCancel();
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : (isEdit ? 'Không thể cập nhật câu hỏi.' : 'Không thể tạo câu hỏi.');
       toast({
         title: 'Lỗi',
-        description: isEdit ? 'Không thể cập nhật câu hỏi.' : 'Không thể tạo câu hỏi.',
+        description: errorMessage,
         variant: 'destructive',
       });
       console.error('Lỗi khi gửi form:', error);
@@ -666,26 +667,46 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
         />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div>
-          <Label>Định dạng</Label>
-          <Select value={formData.format} onValueChange={handleFormatChange}>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="text">Tự luận</SelectItem>
-              <SelectItem value="multiple_choice">Trắc nghiệm</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+      <div>
+        <Label>Định dạng</Label>
+        <Select value={formData.format} onValueChange={handleFormatChange}>
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="text">Tự luận</SelectItem>
+            <SelectItem value="multiple_choice">Trắc nghiệm</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       {isMultipleChoice(formData.format) && (
         <div className="space-y-3">
           <Label>Các phương án trả lời</Label>
+          <p className="text-xs text-muted-foreground mb-2">
+            Chọn đáp án đúng bằng cách nhấn vào biểu tượng ✓ bên cạnh phương án
+          </p>
           {formData.options.map((option, index) => (
             <div key={option.id} className="flex items-start gap-3">
+              <Button
+                type="button"
+                variant={option.isCorrect ? "default" : "outline"}
+                size="sm"
+                onClick={() => {
+                  setFormData((prev) => ({
+                    ...prev,
+                    options: prev.options.map((opt) =>
+                      opt.id === option.id
+                        ? { ...opt, isCorrect: !opt.isCorrect }
+                        : opt
+                    ),
+                  }));
+                }}
+                className={`mt-1 ${option.isCorrect ? 'bg-green-600 hover:bg-green-700' : ''}`}
+                title={option.isCorrect ? 'Đáp án đúng' : 'Đánh dấu là đáp án đúng'}
+              >
+                <Check className="w-4 h-4" />
+              </Button>
               <div className="flex-1">
                 <Input
                   placeholder={`Phương án ${index + 1}`}
@@ -764,16 +785,52 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
           </p>
         </div>
 
-        <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50 p-4 space-y-2">
-          <p className="font-medium text-gray-700">Hướng dẫn nhanh</p>
-          <ol className="list-decimal space-y-1 pl-5 text-sm text-gray-600">
-            <li><strong>B1.</strong> Tải file mẫu hoặc dùng prompt AI bên dưới để chuẩn hóa câu hỏi của bạn.</li>
-            <li><strong>B2.</strong> Kiểm tra lại các cột: <code>Format</code>, <code>Question</code>, <code>Options</code>, <code>Required</code>.</li>
-            <li><strong>B3.</strong> Dán nội dung CSV vào ô bên dưới (hoặc chọn tệp), bấm <strong>Xem trước</strong> rồi <strong>Tạo</strong>.</li>
-          </ol>
-          <p className="text-xs text-muted-foreground">
-            Gợi ý: Format = <code>text</code> cho câu hỏi mở, Format = <code>multiple_choice</code> cho câu trắc nghiệm (Options cách nhau bằng dấu <code>|</code>, Required = <code>true</code> hoặc <code>false</code>). Không cần cột <code>Type</code>, hệ thống sẽ gán mặc định.
-          </p>
+        <div className="rounded-lg border-2 border-blue-200 bg-blue-50 p-5 space-y-3">
+          <div className="flex items-start gap-2">
+            <div className="bg-blue-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-bold flex-shrink-0 mt-0.5">
+              i
+            </div>
+            <div className="flex-1">
+              <p className="font-semibold text-gray-900 mb-2">📋 Hướng dẫn tải lên hàng loạt câu hỏi</p>
+              <div className="space-y-3">
+                <div className="bg-white rounded-lg p-3 border border-blue-100">
+                  <p className="font-medium text-gray-800 mb-2">🎯 Cách 1: Dùng file mẫu (Dễ nhất)</p>
+                  <ol className="list-decimal space-y-1.5 pl-5 text-sm text-gray-700">
+                    <li>Nhấn nút <strong>"Tải file mẫu"</strong> bên dưới</li>
+                    <li>Mở file bằng Excel hoặc Google Sheets</li>
+                    <li>Điền câu hỏi của bạn theo mẫu có sẵn</li>
+                    <li>Lưu file và chọn tệp để tải lên</li>
+                  </ol>
+                </div>
+                
+                <div className="bg-white rounded-lg p-3 border border-blue-100">
+                  <p className="font-medium text-gray-800 mb-2">🤖 Cách 2: Dùng AI (ChatGPT, Copilot)</p>
+                  <ol className="list-decimal space-y-1.5 pl-5 text-sm text-gray-700">
+                    <li>Nhấn <strong>"Sao chép prompt"</strong> bên dưới</li>
+                    <li>Dán vào ChatGPT/Copilot kèm danh sách câu hỏi của bạn</li>
+                    <li>AI sẽ tự động chuyển đổi sang định dạng CSV</li>
+                    <li>Copy kết quả và dán vào ô bên dưới</li>
+                  </ol>
+                </div>
+
+                <div className="bg-white rounded-lg p-3 border border-blue-100">
+                  <p className="font-medium text-gray-800 mb-2">📝 Định dạng CSV cần có:</p>
+                  <ul className="space-y-1 text-sm text-gray-700">
+                    <li>• <strong>Format:</strong> <code className="bg-gray-100 px-1 rounded">text</code> (tự luận) hoặc <code className="bg-gray-100 px-1 rounded">multiple_choice</code> (trắc nghiệm)</li>
+                    <li>• <strong>Question:</strong> Nội dung câu hỏi</li>
+                    <li>• <strong>Options:</strong> Các đáp án cách nhau bằng dấu <code className="bg-gray-100 px-1 rounded">|</code> (VD: Đáp án A|Đáp án B|Đáp án C)</li>
+                    <li>• <strong>Required:</strong> <code className="bg-gray-100 px-1 rounded">true</code> (bắt buộc) hoặc <code className="bg-gray-100 px-1 rounded">false</code> (không bắt buộc)</li>
+                  </ul>
+                </div>
+
+                <div className="bg-amber-50 rounded-lg p-3 border border-amber-200">
+                  <p className="text-sm text-amber-800">
+                    <strong>💡 Lưu ý:</strong> Với câu hỏi tự luận, để trống cột Options. Với câu trắc nghiệm, phải có ít nhất 2 đáp án.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
         <div className="rounded-lg border border-gray-200 bg-white p-4 space-y-3">
