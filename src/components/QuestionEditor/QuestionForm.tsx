@@ -1,6 +1,6 @@
 ﻿// src/components/QuestionForm.tsx
 import { useState, ChangeEvent } from 'react';
-import { Plus, Check, X, AlertCircle, Loader2, Upload, Download, Copy } from 'lucide-react';
+import { Plus, Check, X, AlertCircle, Loader2, Upload, Download, HelpCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -53,19 +53,6 @@ const BULK_TEMPLATE = `Format,Question,Options,Required
 text,"Giới thiệu bản thân",,true
 multiple_choice,"Điểm mạnh lớn nhất của bạn?","Làm việc nhóm|Quản lý thời gian|Giao tiếp",true
 multiple_choice,"Bạn mong muốn môi trường làm việc như thế nào?","Linh hoạt|Kỷ luật|Định hướng kết quả",false
-`;
-
-const AI_PROMPT_TEMPLATE = `Convert the following interview questions into CSV with the headers:
-Format,Question,Options,Required
-
-Rules:
-- Use "text" for open-ended questions.
-- Use "multiple_choice" for questions that include answer options. Put the answer choices in the Options column and separate them with "|" (example: Option A|Option B|Option C).
-- Leave the Options column blank for open-ended questions.
-- Fill the Required column with "true" or "false" only.
-
-Return the CSV data only. Questions:
-[Paste questions here]
 `;
 
 type QuestionFormMode = 'single' | 'bulk';
@@ -322,6 +309,7 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
   const [bulkMessages, setBulkMessages] = useState<BulkMessage[]>([]);
   const [bulkFileName, setBulkFileName] = useState('');
   const [isBulkSubmitting, setIsBulkSubmitting] = useState(false);
+  const [showGuide, setShowGuide] = useState(false);
   const resolvedType = question?.type ?? 'General';
 
   const validateForm = () => {
@@ -608,26 +596,7 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
     URL.revokeObjectURL(url);
   };
 
-  const handleCopyPrompt = async () => {
-    try {
-      if (typeof navigator !== 'undefined' && navigator.clipboard) {
-        await navigator.clipboard.writeText(AI_PROMPT_TEMPLATE);
-        toast({
-          title: 'Đã sao chép',
-          description: 'Dán prompt vào ChatGPT, Copilot hoặc công cụ AI bạn dùng.',
-        });
-      } else {
-        throw new Error('Clipboard API unavailable');
-      }
-    } catch (error) {
-      console.error('Không thể sao chép prompt AI:', error);
-      toast({
-        title: 'Không thể sao chép',
-        description: 'Sao chép thủ công đoạn prompt bên dưới giúp nhé.',
-        variant: 'destructive',
-      });
-    }
-  };
+
 
   const renderSingleForm = (showRoleSelection: boolean) => (
     <div className="space-y-4">
@@ -785,83 +754,88 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
           </p>
         </div>
 
-        <div className="rounded-lg border-2 border-blue-200 bg-blue-50 p-5 space-y-3">
-          <div className="flex items-start gap-2">
-            <div className="bg-blue-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-bold flex-shrink-0 mt-0.5">
-              i
-            </div>
-            <div className="flex-1">
-              <p className="font-semibold text-gray-900 mb-2">📋 Hướng dẫn tải lên hàng loạt câu hỏi</p>
-              <div className="space-y-3">
-                <div className="bg-white rounded-lg p-3 border border-blue-100">
-                  <p className="font-medium text-gray-800 mb-2">🎯 Cách 1: Dùng file mẫu (Dễ nhất)</p>
-                  <ol className="list-decimal space-y-1.5 pl-5 text-sm text-gray-700">
-                    <li>Nhấn nút <strong>"Tải file mẫu"</strong> bên dưới</li>
-                    <li>Mở file bằng Excel hoặc Google Sheets</li>
-                    <li>Điền câu hỏi của bạn theo mẫu có sẵn</li>
-                    <li>Lưu file và chọn tệp để tải lên</li>
-                  </ol>
-                </div>
+        {/* Nút hiển thị hướng dẫn */}
+        <div className="flex justify-center">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setShowGuide(!showGuide)}
+            className="text-blue-600 border-blue-300 hover:bg-blue-50"
+          >
+            <HelpCircle className="w-4 h-4 mr-2" />
+            {showGuide ? 'Ẩn hướng dẫn' : 'Xem hướng dẫn'}
+            {showGuide ? <ChevronUp className="w-4 h-4 ml-2" /> : <ChevronDown className="w-4 h-4 ml-2" />}
+          </Button>
+        </div>
+
+        {/* Hướng dẫn chi tiết - chỉ hiện khi click */}
+        {showGuide && (
+          <div className="rounded-lg border-2 border-blue-200 bg-blue-50 p-5 animate-in slide-in-from-top-2">
+            <div className="flex items-start gap-3">
+              <div className="bg-blue-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-bold flex-shrink-0 mt-0.5">
+                i
+              </div>
+              <div className="flex-1 space-y-4">
+                <p className="font-semibold text-gray-900 text-lg">📋 Hướng dẫn chi tiết</p>
                 
-                <div className="bg-white rounded-lg p-3 border border-blue-100">
-                  <p className="font-medium text-gray-800 mb-2">🤖 Cách 2: Dùng AI (ChatGPT, Copilot)</p>
-                  <ol className="list-decimal space-y-1.5 pl-5 text-sm text-gray-700">
-                    <li>Nhấn <strong>"Sao chép prompt"</strong> bên dưới</li>
-                    <li>Dán vào ChatGPT/Copilot kèm danh sách câu hỏi của bạn</li>
-                    <li>AI sẽ tự động chuyển đổi sang định dạng CSV</li>
-                    <li>Copy kết quả và dán vào ô bên dưới</li>
+                <div className="bg-white rounded-lg p-4 border border-blue-100 space-y-3">
+                  <p className="font-medium text-gray-800">🎯 Cách dễ nhất (Khuyên dùng):</p>
+                  <ol className="list-decimal space-y-2 pl-5 text-sm text-gray-700">
+                    <li>
+                      <strong>Tải file mẫu</strong>
+                      <p className="text-xs text-gray-600 mt-1">Nhấn nút "Tải file mẫu" bên dưới để tải về file CSV có sẵn cấu trúc và ví dụ</p>
+                    </li>
+                    <li>
+                      <strong>Mở và chỉnh sửa</strong>
+                      <p className="text-xs text-gray-600 mt-1">Mở file bằng Excel hoặc Google Sheets, điền câu hỏi của bạn theo mẫu có sẵn</p>
+                    </li>
+                    <li>
+                      <strong>Tải lên</strong>
+                      <p className="text-xs text-gray-600 mt-1">Chọn file hoặc copy nội dung dán vào ô bên dưới</p>
+                    </li>
+                    <li>
+                      <strong>Xem trước và tạo</strong>
+                      <p className="text-xs text-gray-600 mt-1">Nhấn "Xem trước" để kiểm tra, sau đó nhấn "Tạo" để hoàn tất</p>
+                    </li>
                   </ol>
                 </div>
 
-                <div className="bg-white rounded-lg p-3 border border-blue-100">
-                  <p className="font-medium text-gray-800 mb-2">📝 Định dạng CSV cần có:</p>
-                  <ul className="space-y-1 text-sm text-gray-700">
-                    <li>• <strong>Format:</strong> <code className="bg-gray-100 px-1 rounded">text</code> (tự luận) hoặc <code className="bg-gray-100 px-1 rounded">multiple_choice</code> (trắc nghiệm)</li>
-                    <li>• <strong>Question:</strong> Nội dung câu hỏi</li>
-                    <li>• <strong>Options:</strong> Các đáp án cách nhau bằng dấu <code className="bg-gray-100 px-1 rounded">|</code> (VD: Đáp án A|Đáp án B|Đáp án C)</li>
-                    <li>• <strong>Required:</strong> <code className="bg-gray-100 px-1 rounded">true</code> (bắt buộc) hoặc <code className="bg-gray-100 px-1 rounded">false</code> (không bắt buộc)</li>
+                <div className="bg-white rounded-lg p-4 border border-blue-100 space-y-2">
+                  <p className="font-medium text-gray-800">📝 Định dạng CSV:</p>
+                  <ul className="space-y-1.5 text-xs text-gray-700">
+                    <li>• <strong>Format:</strong> <code className="bg-gray-100 px-1.5 py-0.5 rounded">text</code> (tự luận) hoặc <code className="bg-gray-100 px-1.5 py-0.5 rounded">multiple_choice</code> (trắc nghiệm)</li>
+                    <li>• <strong>Question:</strong> Nội dung câu hỏi (bắt buộc)</li>
+                    <li>• <strong>Options:</strong> Các đáp án cách nhau bằng <code className="bg-gray-100 px-1.5 py-0.5 rounded">|</code> (VD: Đáp án A|Đáp án B|Đáp án C)</li>
+                    <li>• <strong>Required:</strong> <code className="bg-gray-100 px-1.5 py-0.5 rounded">true</code> (bắt buộc) hoặc <code className="bg-gray-100 px-1.5 py-0.5 rounded">false</code> (tùy chọn)</li>
                   </ul>
                 </div>
 
                 <div className="bg-amber-50 rounded-lg p-3 border border-amber-200">
-                  <p className="text-sm text-amber-800">
-                    <strong>💡 Lưu ý:</strong> Với câu hỏi tự luận, để trống cột Options. Với câu trắc nghiệm, phải có ít nhất 2 đáp án.
+                  <p className="text-xs text-amber-800">
+                    <strong>💡 Lưu ý:</strong> Câu tự luận để trống cột Options. Câu trắc nghiệm phải có ít nhất 2 đáp án (cách nhau bằng dấu <code>|</code>). Câu hỏi trùng lặp sẽ bị bỏ qua.
                   </p>
                 </div>
               </div>
             </div>
           </div>
-        </div>
+        )}
 
-        <div className="rounded-lg border border-gray-200 bg-white p-4 space-y-3">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <Label className="text-sm font-medium text-gray-700">Prompt gợi ý cho AI (ChatGPT, Copilot, v.v.)</Label>
-              <p className="text-xs text-muted-foreground">Dán prompt này cùng danh sách câu hỏi của bạn, AI sẽ trả về đúng CSV cần nhập.</p>
-            </div>
-            <Button variant="outline" size="sm" onClick={handleCopyPrompt}>
-              <Copy className="mr-2 h-4 w-4" />
-              Sao chép prompt
-            </Button>
-          </div>
-          <Textarea
-            value={AI_PROMPT_TEMPLATE}
-            readOnly
-            className="min-h-[140px] font-mono text-xs text-gray-700"
-          />
-        </div>
-
-        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <Input type="file" accept=".csv,.txt" onChange={handleBulkFileUpload} className="md:max-w-xs" />
-          <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-            <Button variant="outline" size="sm" onClick={handleDownloadTemplate}>
+        <div className="space-y-3">
+          <div className="flex items-center gap-3">
+            <Button variant="outline" size="sm" onClick={handleDownloadTemplate} className="flex-shrink-0">
               <Download className="mr-2 h-4 w-4" />
               Tải file mẫu
             </Button>
-            {bulkFileName && (
-              <span>Tệp đã chọn: {bulkFileName}</span>
-            )}
+            <span className="text-sm text-muted-foreground">hoặc</span>
+            <Input type="file" accept=".csv,.txt" onChange={handleBulkFileUpload} className="flex-1" />
           </div>
+          {bulkFileName && (
+            <p className="text-sm text-green-600 flex items-center gap-2">
+              <Check className="h-4 w-4" />
+              Đã chọn: <strong>{bulkFileName}</strong>
+            </p>
+          )}
         </div>
 
         <Textarea
