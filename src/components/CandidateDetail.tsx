@@ -244,31 +244,18 @@ export const CandidateDetail = ({ candidateId }: CandidateDetailProps) => {
     console.log('[CandidateDetail] teamFit raw:', record);
     
     if (!record) {
-      return [] as Array<[string, number]>;
+      return [] as string[];
     }
 
-    // Handle array of strings (new format) or object (legacy format fallback)
+    // Handle array of strings (new format)
     if (Array.isArray(record)) {
-      const entries = record.map(team => [team, 100] as [string, number]);
-      console.log('[CandidateDetail] teamFitEntries (array):', entries);
-      return entries;
+      console.log('[CandidateDetail] teamFitEntries (array):', record);
+      return record;
     }
 
-    const entries = Object.entries(record)
-      .map(([teamName, rawValue]) => {
-        if (rawValue == null) {
-          return null;
-        }
-        const numericValue = typeof rawValue === 'number' ? rawValue : Number(rawValue);
-        if (!Number.isFinite(numericValue)) {
-          return null;
-        }
-        return [teamName, normalisePercentage(numericValue)] as [string, number];
-      })
-      .filter((entry): entry is [string, number] => Boolean(entry))
-      .sort((a, b) => b[1] - a[1]);
-    
-    console.log('[CandidateDetail] teamFitEntries (object):', entries);
+    // Legacy format fallback - convert object to array
+    const entries = Object.keys(record);
+    console.log('[CandidateDetail] teamFitEntries (object keys):', entries);
     return entries;
   }, [aiInsights?.teamFit]);
 
@@ -366,7 +353,7 @@ export const CandidateDetail = ({ candidateId }: CandidateDetailProps) => {
                   <Users className="w-4 h-4" />
                   Team phù hợp:
                   <div className="flex flex-wrap gap-1">
-                    {teamFitEntries.map(([teamName]) => (
+                    {teamFitEntries.map((teamName) => (
                       <Badge key={teamName} variant="secondary" className="text-xs">
                         {teamName}
                       </Badge>
@@ -517,7 +504,7 @@ export const CandidateDetail = ({ candidateId }: CandidateDetailProps) => {
                 </div>
                 <p className="text-sm text-muted-foreground">Các team được đề xuất dựa trên kết quả đánh giá</p>
                 <div className="flex flex-wrap gap-3">
-                  {teamFitEntries.map(([teamName]) => (
+                  {teamFitEntries.map((teamName) => (
                     <span
                       key={teamName}
                       className="rounded-full bg-sky-100 px-4 py-2 text-sm font-semibold text-sky-700 shadow-sm"

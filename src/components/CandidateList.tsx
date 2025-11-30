@@ -312,7 +312,7 @@ export const CandidateList = () => {
                                 {assessmentRole}
                               </Badge>
                             )}
-                            {candidate.aiInsights?.teamFit && candidate.aiInsights.teamFit.length > 0 && (
+                            {candidate.aiInsights?.teamFit && Array.isArray(candidate.aiInsights.teamFit) && candidate.aiInsights.teamFit.length > 0 && (
                               <>
                                 {candidate.aiInsights.teamFit.slice(0, 2).map((team) => (
                                   <Badge key={team} variant="secondary" className="flex items-center gap-1">
@@ -339,7 +339,7 @@ export const CandidateList = () => {
                           </span>
                         </div>
                         <span className="mt-2 text-xs text-muted-foreground">
-                          {overallScore != null ? 'Điểm tổng' : progressLabel}
+                          {overallScore != null ? 'Điểm tổng' : `${progressLabel} (${progressPercent}%)`}
                         </span>
                       </div>
                       <div className="flex items-center gap-2">

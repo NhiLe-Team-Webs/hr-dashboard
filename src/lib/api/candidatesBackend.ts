@@ -64,18 +64,18 @@ interface AssessmentAttempt {
 }
 
 interface AssessmentResult {
-  overall_score: number;
-  recommended_roles: string[];
-  summary: string;
-  strengths: string[];
-  weaknesses: string[];
-  development_suggestions: string[];
-  team_fit: string[];
-  analysis_completed_at: string;
-  skill_scores: Record<string, unknown>;
-  time_analysis: Record<string, unknown>;
-  cheating_summary: string;
-  personality_traits: string[];
+  overall_score?: number;
+  recommended_roles?: string[];
+  summary?: string;
+  strengths?: string[];
+  weaknesses?: string[];
+  development_suggestions?: string[];
+  team_fit?: string[] | Record<string, unknown> | null;
+  analysis_completed_at?: string;
+  skill_scores?: Record<string, unknown>;
+  time_analysis?: Record<string, unknown>;
+  cheating_summary?: string | Record<string, unknown>;
+  personality_traits?: string[] | Record<string, unknown>;
 }
 
 const mapCandidate = (data: BackendCandidate): CandidateSummary => {
@@ -87,14 +87,34 @@ const mapCandidate = (data: BackendCandidate): CandidateSummary => {
     const result = data.results[0] as AssessmentResult;
     console.log('Processing AI insights from result:', result);
     
+    // Calculate overall score from skill_scores if not provided
+    let overallScore: number | undefined = result.overall_score;
+    if (!overallScore && result.skill_scores) {
+      const scores = Object.values(result.skill_scores).filter((v): v is number => typeof v === 'number');
+      if (scores.length > 0) {
+        overallScore = scores.reduce((sum, score) => sum + score, 0) / scores.length;
+      }
+    }
+    
+    // Normalize teamFit to array of strings
+    let teamFit: string[] | undefined = undefined;
+    if (result.team_fit) {
+      if (Array.isArray(result.team_fit)) {
+        teamFit = result.team_fit;
+      } else if (typeof result.team_fit === 'object') {
+        // If it's an object, extract keys or values
+        teamFit = Object.keys(result.team_fit);
+      }
+    }
+    
     aiInsights = {
-      overallScore: result.overall_score,
-      recommendedRoles: result.recommended_roles,
-      summary: result.summary,
-      strengths: result.strengths,
-      weaknesses: result.weaknesses,
-      developmentSuggestions: result.development_suggestions,
-      teamFit: result.team_fit,
+      overallScore,
+      recommendedRoles: result.recommended_roles || [],
+      summary: result.summary || null,
+      strengths: result.strengths || [],
+      weaknesses: result.weaknesses || [],
+      developmentSuggestions: result.development_suggestions || [],
+      teamFit,
       analysisCompletedAt: result.analysis_completed_at,
       skillScores: result.skill_scores as Record<string, number>,
       timeAnalysis: result.time_analysis as Record<string, unknown>,
@@ -195,6 +215,18 @@ const mapCandidateDetail = (data: BackendCandidate): CandidateDetailSummary => {
 export const getCandidates = async (params?: CandidateListParams): Promise<CandidateSummary[]> => {
   try {
     const response = await httpClient.get<CandidateListResponse>('/hr/candidates', params);
+
+    console.log('[getCandidates] Response from backend:', {
+      candidatesCount: response.candidates?.length,
+      sampleCandidate: response.candidates?.[0] ? {
+        id: (response.candidates[0] as any).id,
+        email: (response.candidates[0] as any).email,
+        hasAttempts: !!(response.candidates[0] as any).assessment_attempts,
+        attemptsCount: (response.candidates[0] as any).assessment_attempts?.length,
+        hasResults: !!(response.candidates[0] as any).results,
+        resultsCount: (response.candidates[0] as any).results?.length,
+      } : null,
+    });
 
     // Map backend response to frontend format
     return (response.candidates as BackendCandidate[]).map(mapCandidate);
