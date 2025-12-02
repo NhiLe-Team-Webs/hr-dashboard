@@ -38,6 +38,9 @@ export interface Question {
   createdAt?: string;
   options?: QuestionOption[];
   correctAnswer?: string;
+  duration?: number; // Duration in minutes
+  points?: number;
+  role?: string;
 }
 
 export interface QuestionsByRole {
@@ -51,6 +54,7 @@ export interface QuestionTypeInfo {
 }
 
 export interface RoleSummary {
+  id?: string;
   name: string;
   duration: number;
 }

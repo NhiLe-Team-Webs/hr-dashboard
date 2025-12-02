@@ -140,7 +140,7 @@ export const Analytics = () => {
               legend: { display: false }
             },
             scales: {
-              x: { 
+              x: {
                 beginAtZero: true,
                 max: 100,
                 ticks: {
@@ -154,6 +154,7 @@ export const Analytics = () => {
     }
 
     // Role Distribution Chart
+    /*
     if (roleChartRef.current) {
       const roleCounts: Record<string, number> = {};
       candidates.forEach((candidate) => {
@@ -183,6 +184,7 @@ export const Analytics = () => {
         });
       }
     }
+    */
 
     // Status Chart
     if (statusChartRef.current) {
@@ -299,7 +301,8 @@ export const Analytics = () => {
             </div>
           </Card>
 
-          <Card className="p-6 bg-card border border-border rounded-3xl shadow-lg">
+          {/* Phần "Phân bổ theo vị trí" tạm thời comment lại */}
+          {/* <Card className="p-6 bg-card border border-border rounded-3xl shadow-lg">
             <div className="flex items-center gap-2 mb-4">
               <Briefcase className="h-5 w-5 text-blue-600" />
               <h3 className="font-bold text-lg text-foreground">Phân bổ theo vị trí</h3>
@@ -307,17 +310,18 @@ export const Analytics = () => {
             <div className="h-80">
               <canvas ref={roleChartRef}></canvas>
             </div>
+          </Card> */}
+
+          <Card className="p-6 bg-card border border-border rounded-3xl shadow-lg">
+            <h3 className="font-bold text-lg mb-4 text-foreground">Trạng thái đánh giá</h3>
+            <div className="h-80">
+              <canvas ref={statusChartRef}></canvas>
+            </div>
           </Card>
         </div>
 
         {/* Charts Row 2 */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <Card className="p-6 bg-card border border-border rounded-3xl shadow-lg">
-            <h3 className="font-bold text-lg mb-4 text-foreground">Trạng thái đánh giá</h3>
-            <div className="h-64">
-              <canvas ref={statusChartRef}></canvas>
-            </div>
-          </Card>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
 
           <Card className="p-6 bg-card border border-border rounded-3xl shadow-lg">
             <h3 className="font-bold text-lg mb-4 text-foreground">Điểm mạnh phổ biến</h3>

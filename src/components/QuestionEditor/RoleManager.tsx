@@ -23,7 +23,7 @@ const toMinutes = (seconds?: number) => {
   if (!seconds || seconds <= 0) {
     return DEFAULT_DURATION_MINUTES;
   }
-  return Math.max(1, Math.round(seconds));
+  return Math.max(1, Math.round(seconds / 60));
 };
 
 const RoleManager: React.FC<RoleManagerProps> = ({ roles, questions, setRoles, setQuestions, onClose }) => {
@@ -57,7 +57,8 @@ const RoleManager: React.FC<RoleManagerProps> = ({ roles, questions, setRoles, s
       return;
     }
 
-    const durationSeconds = Math.round(parsedMinutes);
+    // Convert minutes to seconds for API
+    const durationSeconds = Math.round(parsedMinutes * 60);
 
     try {
       const createdRole = await apiCreateRole(trimmedName, durationSeconds);
@@ -89,8 +90,14 @@ const RoleManager: React.FC<RoleManagerProps> = ({ roles, questions, setRoles, s
           return updated;
         });
         toast({ title: 'Thành công', description: 'Đã xóa vị trí và các câu hỏi liên quan' });
-      } catch (error) {
-        toast({ title: 'Lỗi', description: 'Không thể xóa vị trí. Vui lòng thử lại.', variant: 'destructive' });
+      } catch (error: any) {
+        const errorMessage = error?.message || 'Không thể xóa vị trí. Vui lòng thử lại.';
+        toast({ 
+          title: 'Lỗi', 
+          description: errorMessage, 
+          variant: 'destructive',
+          duration: 5000 
+        });
         console.error(error);
       }
     }
@@ -109,7 +116,8 @@ const RoleManager: React.FC<RoleManagerProps> = ({ roles, questions, setRoles, s
       return;
     }
 
-    const durationSeconds = Math.round(parsedMinutes);
+    // Convert minutes to seconds for API
+    const durationSeconds = Math.round(parsedMinutes * 60);
 
     try {
       await apiUpdateRoleDuration(roleName, durationSeconds);
@@ -194,7 +202,7 @@ const RoleManager: React.FC<RoleManagerProps> = ({ roles, questions, setRoles, s
                   const parsedMinutes = Number(inputValue);
                   const currentMinutes = toMinutes(role.duration);
                   const isInvalid = !inputValue || !Number.isFinite(parsedMinutes) || parsedMinutes <= 0;
-                  const isDirty = !isInvalid && parsedMinutes !== role.duration;
+                  const isDirty = !isInvalid && parsedMinutes !== currentMinutes;
 
                   return (
                     <li

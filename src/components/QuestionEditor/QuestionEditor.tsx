@@ -36,18 +36,27 @@ const QuestionEditor = () => {
     const fetchRoles = async () => {
       setIsLoadingRoles(true);
       try {
+        console.log('DEBUG: QuestionEditor - Fetching roles...');
         const rolesData = await getRoles();
+        console.log('DEBUG: QuestionEditor - Received rolesData:', rolesData);
+        console.log('DEBUG: QuestionEditor - rolesData type:', typeof rolesData);
+        console.log('DEBUG: QuestionEditor - rolesData is array:', Array.isArray(rolesData));
+
         if (!isMounted) {
           return;
         }
+
         setRoles(rolesData);
         setSelectedRole((prev) => {
-          if (prev && rolesData.some((role) => role.name === prev)) {
+          console.log('DEBUG: QuestionEditor - Setting selected role. prev:', prev, 'rolesData:', rolesData);
+          if (prev && rolesData && rolesData.some((role) => role.name === prev)) {
             return prev;
           }
-          return rolesData[0]?.name ?? '';
+          console.log('DEBUG: QuestionEditor - Accessing rolesData[0]:', rolesData ? rolesData[0] : 'rolesData is null/undefined');
+          return rolesData && rolesData[0] ? rolesData[0].name : '';
         });
       } catch (error) {
+        console.error('DEBUG: QuestionEditor - Error fetching roles:', error);
         if (isMounted) {
           toast({
             title: 'Lỗi',
@@ -69,28 +78,37 @@ const QuestionEditor = () => {
     };
   }, [toast]);
 
-  // Tải câu hỏi cho vai trò đã chọn
+  // Tải tất cả câu hỏi khi component được mount
   useEffect(() => {
-    if (!selectedRole) {
-      setIsLoadingQuestions(false);
-      return;
-    }
-
     let isMounted = true;
 
-    const fetchQuestions = async () => {
+    const fetchAllQuestions = async () => {
       setIsLoadingQuestions(true);
       try {
-        const data = await getQuestionsByRole(selectedRole);
+        console.log('DEBUG: QuestionEditor - Fetching all questions...');
+        const allQuestions = await getQuestionsByRole(); // Fetch all
+
         if (!isMounted) {
           return;
         }
-        setQuestions(prev => ({ ...prev, [selectedRole]: data }));
+
+        // Group questions by role
+        const grouped: QuestionsByRole = {};
+        allQuestions.forEach((q) => {
+          const role = q.role || 'unknown';
+          if (!grouped[role]) {
+            grouped[role] = [];
+          }
+          grouped[role].push(q);
+        });
+
+        setQuestions(grouped);
       } catch (error) {
+        console.error('DEBUG: QuestionEditor - Error fetching questions:', error);
         if (isMounted) {
           toast({
             title: 'Lỗi',
-            description: 'Không thể tải câu hỏi.',
+            description: 'Không thể tải danh sách câu hỏi.',
             variant: 'destructive',
           });
         }
@@ -101,12 +119,12 @@ const QuestionEditor = () => {
       }
     };
 
-    fetchQuestions();
+    fetchAllQuestions();
 
     return () => {
       isMounted = false;
     };
-  }, [selectedRole, toast]);
+  }, [toast]);
 
   const currentQuestions = questions[selectedRole] || [];
   const roleNames = roles.map((role) => role.name);
@@ -189,23 +207,23 @@ const QuestionEditor = () => {
             </div>
           </div>
 
-          {/* Stats */}
+          {/* Stats - Hiển thị thống kê cho vai trò hiện tại */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6 pt-6 border-t border-gray-100">
             <div className="text-center">
               <div className="text-2xl font-bold text-blue-600">
-                {Object.values(questions).reduce((total, roleQuestions) => total + roleQuestions.length, 0)}
+                {currentQuestions.length}
               </div>
               <div className="text-sm text-gray-600">Tổng câu hỏi</div>
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-purple-600">
-                {Object.values(questions).flat().filter(q => isTextFormat(q.format)).length}
+                {currentQuestions.filter(q => isTextFormat(q.format)).length}
               </div>
               <div className="text-sm text-gray-600">Tự luận</div>
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-green-600">
-                {Object.values(questions).flat().filter(q => isMultipleChoiceFormat(q.format)).length}
+                {currentQuestions.filter(q => isMultipleChoiceFormat(q.format)).length}
               </div>
               <div className="text-sm text-gray-600">Trắc nghiệm</div>
             </div>
@@ -234,7 +252,7 @@ const QuestionEditor = () => {
                     <SelectContent>
                       {roles.map((role) => {
                         const questionCount = (questions[role.name] || []).length;
-                        const minutes = role.duration ? Math.max(1, Math.round(role.duration)) : 30;
+                        const minutes = role.duration ? Math.max(1, Math.round(role.duration / 60)) : 30;
                         return (
                           <SelectItem key={role.name} value={role.name}>
                             {role.name} ({questionCount} câu hỏi · {minutes} phút)

@@ -1,6 +1,6 @@
 ﻿// src/components/QuestionForm.tsx
-import { useState, ChangeEvent } from 'react';
-import { Plus, Check, X, AlertCircle, Loader2, Upload, Download, Copy } from 'lucide-react';
+import { useState } from 'react';
+import { Plus, Check, X, AlertCircle, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -45,28 +45,9 @@ const cloneOptions = (options?: QuestionOption[]): QuestionOption[] => {
 
   return options.map((option) => ({
     ...option,
-    isCorrect: undefined,
+    isCorrect: option.isCorrect || false,
   }));
 };
-
-const BULK_TEMPLATE = `Format,Question,Options,Required
-text,"Giới thiệu bản thân",,true
-multiple_choice,"Điểm mạnh lớn nhất của bạn?","Làm việc nhóm|Quản lý thời gian|Giao tiếp",true
-multiple_choice,"Bạn mong muốn môi trường làm việc như thế nào?","Linh hoạt|Kỷ luật|Định hướng kết quả",false
-`;
-
-const AI_PROMPT_TEMPLATE = `Convert the following interview questions into CSV with the headers:
-Format,Question,Options,Required
-
-Rules:
-- Use "text" for open-ended questions.
-- Use "multiple_choice" for questions that include answer options. Put the answer choices in the Options column and separate them with "|" (example: Option A|Option B|Option C).
-- Leave the Options column blank for open-ended questions.
-- Fill the Required column with "true" or "false" only.
-
-Return the CSV data only. Questions:
-[Paste questions here]
-`;
 
 type QuestionFormMode = 'single' | 'bulk';
 
@@ -80,71 +61,6 @@ interface BulkMessage {
   text: string;
 }
 
-const parseBoolean = (value?: string) => {
-  if (!value) {
-    return true;
-  }
-  const normalized = value.trim().toLowerCase();
-  if (['0', 'false', 'no', 'n', 'không', 'khong', 'ko'].includes(normalized)) {
-    return false;
-  }
-  return true;
-};
-
-const splitCsvLine = (line: string) => {
-  const cells: string[] = [];
-  let current = '';
-  let inQuotes = false;
-
-  for (let index = 0; index < line.length; index += 1) {
-    const char = line[index];
-
-    if (char === '"') {
-      const nextChar = line[index + 1];
-      if (inQuotes && nextChar === '"') {
-        current += '"';
-        index += 1;
-      } else {
-        inQuotes = !inQuotes;
-      }
-      continue;
-    }
-
-    if (char === ',' && !inQuotes) {
-      cells.push(current.trim());
-      current = '';
-      continue;
-    }
-
-    current += char;
-  }
-
-  cells.push(current.trim());
-  return cells.map((value) => value.replace(/^"(.*)"$/, '$1').trim());
-};
-
-const mapFormatInput = (value?: string): Question['format'] => {
-  if (!value) {
-    return 'text';
-  }
-
-  const normalized = value.trim().toLowerCase();
-
-  if (
-    normalized === 'multiple_choice' ||
-    normalized === 'multiple-choice' ||
-    normalized === 'multiple choice' ||
-    normalized === 'mcq' ||
-    normalized.includes('multiple') ||
-    normalized.includes('trắc') ||
-    normalized.includes('trac')
-  ) {
-    return 'multiple_choice';
-  }
-
-  return 'text';
-};
-
 const parseBulkInput = (
   raw: string,
   existingQuestions: Question[]
@@ -154,7 +70,7 @@ const parseBulkInput = (
   const errors: string[] = [];
 
   if (!trimmed) {
-    errors.push('Vui lòng tải tệp hoặc dán danh sách câu hỏi trước khi xem trước.');
+    errors.push('Vui lòng dán danh sách câu hỏi vào ô trống.');
     return { items, errors };
   }
 
@@ -164,23 +80,7 @@ const parseBulkInput = (
     .filter((line) => line.length > 0);
 
   if (!lines.length) {
-    errors.push('Không tìm thấy dữ liệu câu hỏi trong tệp.');
-    return { items, errors };
-  }
-
-  const headerCells = splitCsvLine(lines[0]).map((cell) => cell.toLowerCase());
-  const recognisedHeader = headerCells.some((cell) =>
-    ['format', 'question', 'text', 'type', 'options', 'choices', 'required'].includes(cell)
-  );
-
-  const columns = recognisedHeader
-    ? headerCells
-    : ['format', 'question', 'options', 'required'];
-
-  const dataLines = recognisedHeader ? lines.slice(1) : lines;
-
-  if (!dataLines.length) {
-    errors.push('Không có dòng dữ liệu nào sau phần tiêu đề.');
+    errors.push('Không tìm thấy dữ liệu.');
     return { items, errors };
   }
 
@@ -189,79 +89,68 @@ const parseBulkInput = (
   );
   const localTexts = new Set<string>();
 
-  dataLines.forEach((line, index) => {
-    const cells = splitCsvLine(line);
-    while (cells.length < columns.length) {
-      cells.push('');
+  lines.forEach((line, index) => {
+    const rowNumber = index + 1;
+    let questionText = '';
+    let optionsText = '';
+    let format: Question['format'] = 'text';
+    const required = true;
+
+    // Smart Parsing Logic
+    // Try to split by tab first (Excel copy-paste), then pipe
+    if (line.includes('\t')) {
+      const parts = line.split('\t');
+      questionText = parts[0];
+      optionsText = parts.slice(1).join('|');
+    } else if (line.includes('|')) {
+      // Format: Question | Opt1 | Opt2
+      const parts = line.split('|');
+      questionText = parts[0];
+      optionsText = parts.slice(1).join('|');
+    } else {
+      // Just text
+      questionText = line;
     }
 
-    const rowNumber = recognisedHeader ? index + 2 : index + 1;
-
-    const cellValue = (key: string) => {
-      const columnIndex = columns.indexOf(key);
-      if (columnIndex === -1) {
-        return '';
-      }
-      return cells[columnIndex] ?? '';
-    };
-
-    const textValue = cellValue('question') || cellValue('text') || '';
-    if (!textValue.trim()) {
-      errors.push(`Dòng ${rowNumber}: Thiếu nội dung câu hỏi.`);
-      return;
+    // Refine detection
+    if (optionsText.trim()) {
+      format = 'multiple_choice';
     }
 
-    const normalizedText = textValue.trim();
-    const normalizedKey = normalizedText.toLowerCase();
+    // Validation & Cleanup
+    questionText = questionText.trim();
+    if (!questionText) return;
 
+    const normalizedKey = questionText.toLowerCase();
     if (existingTexts.has(normalizedKey)) {
-      errors.push(`Dòng ${rowNumber}: Câu hỏi đã tồn tại trong vai trò hiện tại.`);
+      errors.push(`Dòng ${rowNumber}: Câu hỏi "${questionText}" đã tồn tại.`);
       return;
     }
-
     if (localTexts.has(normalizedKey)) {
-      errors.push(`Dòng ${rowNumber}: Câu hỏi bị trùng lặp trong tệp tải lên.`);
+      errors.push(`Dòng ${rowNumber}: Câu hỏi "${questionText}" bị trùng lặp.`);
       return;
     }
-
-    const formatValue = mapFormatInput(cellValue('format') || cellValue('loại'));
-    const format = normaliseFormat(formatValue);
-
-    const typeValue = (cellValue('type') || cellValue('nhóm') || '').trim();
-    const requiredValue = cellValue('required');
-    const required = parseBoolean(requiredValue);
-    const optionsRaw = cellValue('options') || cellValue('choices') || '';
 
     let options: QuestionOption[] | undefined;
-
     if (format === 'multiple_choice') {
-      const optionTexts = optionsRaw
-        .split('|')
-        .map((option) => option.trim())
-        .filter(Boolean);
-
-      if (optionTexts.length < 2) {
-        errors.push(
-          `Dòng ${rowNumber}: Câu hỏi trắc nghiệm cần tối thiểu 2 phương án, phân tách bằng dấu "|".`
-        );
+      const optionList = optionsText.split(/[|\t]/).map(o => o.trim()).filter(Boolean);
+      if (optionList.length < 2) {
+        errors.push(`Dòng ${rowNumber}: Câu trắc nghiệm cần ít nhất 2 đáp án.`);
         return;
       }
-
-      options = optionTexts.map((optionText) => ({
-        id: createOptionId(),
-        text: optionText,
-      }));
+      options = optionList.map(text => ({ id: createOptionId(), text }));
     }
 
-    const draft: QuestionDraft = {
-      text: normalizedText,
-      type: typeValue || 'General',
-      format,
-      required,
-      options,
-    };
-
-    items.push({ draft, sourceRow: rowNumber });
+    items.push({
+      draft: {
+        text: questionText,
+        type: 'General',
+        format,
+        required,
+        options
+      },
+      sourceRow: rowNumber
+    });
     localTexts.add(normalizedKey);
   });
 
@@ -301,7 +190,7 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
   currentQuestions = [],
   targetRole = '',
   roles = [],
-  setTargetRole = () => {},
+  setTargetRole = () => { },
 }) => {
   const initialOptions = isMultipleChoice(question?.format)
     ? cloneOptions(question?.options)
@@ -320,7 +209,6 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
   const [bulkInput, setBulkInput] = useState('');
   const [bulkPreview, setBulkPreview] = useState<BulkParseItem[]>([]);
   const [bulkMessages, setBulkMessages] = useState<BulkMessage[]>([]);
-  const [bulkFileName, setBulkFileName] = useState('');
   const [isBulkSubmitting, setIsBulkSubmitting] = useState(false);
   const resolvedType = question?.type ?? 'General';
 
@@ -367,11 +255,11 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
     const multipleChoice = isMultipleChoice(formData.format);
     const cleanedOptions = multipleChoice
       ? formData.options
-          .filter((option) => option.text.trim())
-          .map((option) => ({
-            ...option,
-            isCorrect: undefined,
-          }))
+        .filter((option) => option.text.trim())
+        .map((option) => ({
+          ...option,
+          isCorrect: option.isCorrect || false,
+        }))
       : undefined;
 
     const draft: QuestionDraft = {
@@ -415,9 +303,10 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
 
       onCancel();
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : (isEdit ? 'Không thể cập nhật câu hỏi.' : 'Không thể tạo câu hỏi.');
       toast({
         title: 'Lỗi',
-        description: isEdit ? 'Không thể cập nhật câu hỏi.' : 'Không thể tạo câu hỏi.',
+        description: errorMessage,
         variant: 'destructive',
       });
       console.error('Lỗi khi gửi form:', error);
@@ -500,7 +389,7 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
     const messages: BulkMessage[] = result.errors.map((error) => ({ type: 'error', text: error }));
 
     if (!result.items.length && result.errors.length === 0) {
-      messages.push({ type: 'info', text: 'Không tìm thấy dữ liệu hợp lệ trong tệp.' });
+      messages.push({ type: 'info', text: 'Không tìm thấy dữ liệu hợp lệ.' });
     }
 
     setBulkMessages(messages);
@@ -514,7 +403,7 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
     }
 
     if (!bulkPreview.length) {
-      setBulkMessages([{ type: 'info', text: 'Chưa có câu hỏi hợp lệ. Hãy chọn tệp và nhấn "Xem trước" trước khi tạo.' }]);
+      setBulkMessages([{ type: 'info', text: 'Chưa có câu hỏi hợp lệ. Hãy nhấn "Kiểm tra dữ liệu" trước.' }]);
       return;
     }
 
@@ -562,70 +451,10 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
 
     if (!failures.length) {
       setBulkInput('');
-      setBulkFileName('');
       onCancel();
     }
 
     setIsBulkSubmitting(false);
-  };
-
-  const handleBulkFileUpload = (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) {
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = () => {
-      const text = typeof reader.result === 'string' ? reader.result : '';
-      setBulkInput(text);
-      setBulkFileName(file.name);
-      setBulkMessages([]);
-      setBulkPreview([]);
-    };
-    reader.onerror = () => {
-      toast({
-        title: 'Không thể đọc tệp',
-        description: 'Vui lòng kiểm tra lại định dạng tệp CSV (.csv, .txt).',
-        variant: 'destructive',
-      });
-    };
-
-    reader.readAsText(file, 'utf-8');
-    event.target.value = '';
-  };
-
-  const handleDownloadTemplate = () => {
-    const blob = new Blob([BULK_TEMPLATE], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = 'hr-question-template.csv';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  };
-
-  const handleCopyPrompt = async () => {
-    try {
-      if (typeof navigator !== 'undefined' && navigator.clipboard) {
-        await navigator.clipboard.writeText(AI_PROMPT_TEMPLATE);
-        toast({
-          title: 'Đã sao chép',
-          description: 'Dán prompt vào ChatGPT, Copilot hoặc công cụ AI bạn dùng.',
-        });
-      } else {
-        throw new Error('Clipboard API unavailable');
-      }
-    } catch (error) {
-      console.error('Không thể sao chép prompt AI:', error);
-      toast({
-        title: 'Không thể sao chép',
-        description: 'Sao chép thủ công đoạn prompt bên dưới giúp nhé.',
-        variant: 'destructive',
-      });
-    }
   };
 
   const renderSingleForm = (showRoleSelection: boolean) => (
@@ -666,26 +495,46 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
         />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div>
-          <Label>Định dạng</Label>
-          <Select value={formData.format} onValueChange={handleFormatChange}>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="text">Tự luận</SelectItem>
-              <SelectItem value="multiple_choice">Trắc nghiệm</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+      <div>
+        <Label>Định dạng</Label>
+        <Select value={formData.format} onValueChange={handleFormatChange}>
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="text">Tự luận</SelectItem>
+            <SelectItem value="multiple_choice">Trắc nghiệm</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       {isMultipleChoice(formData.format) && (
         <div className="space-y-3">
           <Label>Các phương án trả lời</Label>
+          <p className="text-xs text-muted-foreground mb-2">
+            Chọn đáp án đúng bằng cách nhấn vào biểu tượng ✓ bên cạnh phương án
+          </p>
           {formData.options.map((option, index) => (
             <div key={option.id} className="flex items-start gap-3">
+              <Button
+                type="button"
+                variant={option.isCorrect ? "default" : "outline"}
+                size="sm"
+                onClick={() => {
+                  setFormData((prev) => ({
+                    ...prev,
+                    options: prev.options.map((opt) =>
+                      opt.id === option.id
+                        ? { ...opt, isCorrect: !opt.isCorrect }
+                        : opt
+                    ),
+                  }));
+                }}
+                className={`mt-1 ${option.isCorrect ? 'bg-green-600 hover:bg-green-700' : ''}`}
+                title={option.isCorrect ? 'Đáp án đúng' : 'Đánh dấu là đáp án đúng'}
+              >
+                <Check className="w-4 h-4" />
+              </Button>
               <div className="flex-1">
                 <Input
                   placeholder={`Phương án ${index + 1}`}
@@ -741,162 +590,172 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
   );
 
   const renderBulkForm = () => {
-    const hasBlockingErrors = bulkMessages.some((message) => message.type === 'error');
+    const hasInput = bulkInput.trim().length > 0;
+    const hasPreview = bulkPreview.length > 0;
+    const hasErrors = bulkMessages.length > 0;
 
     return (
-      <div className="space-y-4">
-        <div className="space-y-2">
-          <Label>Vị trí áp dụng *</Label>
+      <div className="space-y-5">
+        {/* Hướng dẫn nhanh */}
+        <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-4">
+          <div className="flex gap-3">
+            <div className="bg-blue-500 text-white rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold flex-shrink-0">
+              💡
+            </div>
+            <div className="flex-1">
+              <p className="font-semibold text-blue-900 mb-2">Cách thêm nhanh nhiều câu hỏi:</p>
+              <ol className="text-sm text-blue-800 space-y-1 list-decimal list-inside">
+                <li>Chọn vị trí tuyển dụng bên dưới</li>
+                <li>Dán danh sách câu hỏi (mỗi dòng 1 câu, dùng dấu | để tách đáp án)</li>
+                <li>Nhấn nút xanh để hoàn tất</li>
+              </ol>
+            </div>
+          </div>
+        </div>
+
+        {/* Bước 1: Chọn vị trí */}
+        <div className="bg-white border-2 rounded-lg p-5 space-y-3" style={{ borderColor: !targetRole ? '#3b82f6' : '#e5e7eb' }}>
+          <div className="flex items-center gap-2">
+            <div className={`w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold ${targetRole ? 'bg-green-500 text-white' : 'bg-blue-500 text-white'}`}>
+              {targetRole ? '✓' : '1'}
+            </div>
+            <Label className="text-base font-semibold text-gray-900">Chọn vị trí tuyển dụng</Label>
+          </div>
           <Select value={targetRole} onValueChange={setTargetRole}>
-            <SelectTrigger>
-              <SelectValue placeholder="Chọn vị trí..." />
+            <SelectTrigger className="w-full bg-white text-base h-11">
+              <SelectValue placeholder="👉 Nhấn vào đây để chọn vị trí..." />
             </SelectTrigger>
             <SelectContent>
               {roles.map((role) => (
-                <SelectItem key={role} value={role}>
-                  {role}
-                </SelectItem>
+                <SelectItem key={role} value={role} className="text-base">{role}</SelectItem>
               ))}
             </SelectContent>
           </Select>
-          <p className="text-xs text-muted-foreground">
-            Các câu hỏi mới sẽ được thêm vào vai trò đã chọn. Bạn có thể thay đổi vai trò trước khi tạo.
-          </p>
+          {targetRole && (
+            <p className="text-sm text-green-600 flex items-center gap-1">
+              <Check className="w-4 h-4" />
+              Đã chọn: <strong>{targetRole}</strong>
+            </p>
+          )}
         </div>
 
-        <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50 p-4 space-y-2">
-          <p className="font-medium text-gray-700">Hướng dẫn nhanh</p>
-          <ol className="list-decimal space-y-1 pl-5 text-sm text-gray-600">
-            <li><strong>B1.</strong> Tải file mẫu hoặc dùng prompt AI bên dưới để chuẩn hóa câu hỏi của bạn.</li>
-            <li><strong>B2.</strong> Kiểm tra lại các cột: <code>Format</code>, <code>Question</code>, <code>Options</code>, <code>Required</code>.</li>
-            <li><strong>B3.</strong> Dán nội dung CSV vào ô bên dưới (hoặc chọn tệp), bấm <strong>Xem trước</strong> rồi <strong>Tạo</strong>.</li>
-          </ol>
-          <p className="text-xs text-muted-foreground">
-            Gợi ý: Format = <code>text</code> cho câu hỏi mở, Format = <code>multiple_choice</code> cho câu trắc nghiệm (Options cách nhau bằng dấu <code>|</code>, Required = <code>true</code> hoặc <code>false</code>). Không cần cột <code>Type</code>, hệ thống sẽ gán mặc định.
-          </p>
-        </div>
-
-        <div className="rounded-lg border border-gray-200 bg-white p-4 space-y-3">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <Label className="text-sm font-medium text-gray-700">Prompt gợi ý cho AI (ChatGPT, Copilot, v.v.)</Label>
-              <p className="text-xs text-muted-foreground">Dán prompt này cùng danh sách câu hỏi của bạn, AI sẽ trả về đúng CSV cần nhập.</p>
+        {/* Bước 2: Nhập câu hỏi */}
+        <div className="bg-white border-2 rounded-lg p-5 space-y-3" style={{ borderColor: targetRole && !hasInput ? '#3b82f6' : '#e5e7eb' }}>
+          <div className="flex items-center gap-2">
+            <div className={`w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold ${hasInput ? 'bg-green-500 text-white' : targetRole ? 'bg-blue-500 text-white' : 'bg-gray-300 text-gray-600'}`}>
+              {hasInput ? '✓' : '2'}
             </div>
-            <Button variant="outline" size="sm" onClick={handleCopyPrompt}>
-              <Copy className="mr-2 h-4 w-4" />
-              Sao chép prompt
-            </Button>
+            <Label className="text-base font-semibold text-gray-900">Dán danh sách câu hỏi</Label>
           </div>
-          <Textarea
-            value={AI_PROMPT_TEMPLATE}
-            readOnly
-            className="min-h-[140px] font-mono text-xs text-gray-700"
-          />
-        </div>
 
-        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <Input type="file" accept=".csv,.txt" onChange={handleBulkFileUpload} className="md:max-w-xs" />
-          <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-            <Button variant="outline" size="sm" onClick={handleDownloadTemplate}>
-              <Download className="mr-2 h-4 w-4" />
-              Tải file mẫu
-            </Button>
-            {bulkFileName && (
-              <span>Tệp đã chọn: {bulkFileName}</span>
-            )}
+          {/* Ví dụ mẫu */}
+          <div className="bg-amber-50 border border-amber-200 rounded p-3 text-sm">
+            <p className="font-medium text-amber-900 mb-2">📝 Ví dụ mẫu (copy và thử):</p>
+            <div className="bg-white rounded p-2 font-mono text-xs space-y-1 border border-amber-200">
+              <div className="text-gray-700">Giới thiệu bản thân</div>
+              <div className="text-gray-700">Điểm mạnh của bạn? | Làm việc nhóm | Quản lý thời gian | Giao tiếp</div>
+              <div className="text-gray-700">Kinh nghiệm làm việc? | Dưới 1 năm | 1-3 năm | Trên 3 năm</div>
+            </div>
           </div>
-        </div>
 
-        <Textarea
-          placeholder="Dán nội dung CSV trực tiếp tại đây, mỗi dòng một câu hỏi."
-          value={bulkInput}
-          onChange={(event) => {
-            setBulkInput(event.target.value);
-            setBulkMessages([]);
-            setBulkPreview([]);
-          }}
-          className="min-h-[160px]"
-        />
-
-        <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleBulkPreview}
-            disabled={isBulkSubmitting}
-          >
-            <Upload className="mr-2 h-4 w-4" />
-            Xem trước dữ liệu
-          </Button>
-          <span>Bạn có thể chỉnh sửa trực tiếp nội dung sau khi dán.</span>
-        </div>
-
-        {bulkMessages.length > 0 && (
-          <div className="space-y-2">
-            {bulkMessages.map((message, index) => (
-              <div
-                key={`${message.text}-${index}`}
-                className={`flex items-start gap-2 rounded-md border p-3 text-sm ${
-                  message.type === 'error'
-                    ? 'border-red-200 bg-red-50 text-red-700'
-                    : 'border-blue-200 bg-blue-50 text-blue-700'
-                }`}
+          <div className="relative">
+            <Textarea
+              placeholder="Dán danh sách câu hỏi vào đây...&#10;&#10;Mỗi dòng = 1 câu hỏi&#10;Câu tự luận: chỉ cần ghi câu hỏi&#10;Câu trắc nghiệm: Câu hỏi | Đáp án 1 | Đáp án 2 | Đáp án 3"
+              value={bulkInput}
+              onChange={(e) => {
+                setBulkInput(e.target.value);
+                setBulkMessages([]);
+                setBulkPreview([]);
+              }}
+              className="min-h-[200px] font-mono text-sm p-4 leading-relaxed resize-y"
+              disabled={!targetRole}
+            />
+            {hasInput && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="absolute top-2 right-2 h-7 text-xs"
+                onClick={() => {
+                  setBulkInput('');
+                  setBulkMessages([]);
+                  setBulkPreview([]);
+                }}
               >
-                <AlertCircle className="mt-0.5 h-4 w-4" />
-                <span>{message.text}</span>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {bulkPreview.length > 0 && (
-          <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
-            <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-gray-600">
-              <span>Đã đọc {bulkPreview.length} câu hỏi sẵn sàng tạo.</span>
-              <span>Định dạng: <code>text</code> = Tự luận, <code>multiple_choice</code> = Trắc nghiệm</span>
-            </div>
-            <div className="mt-3 max-h-64 space-y-2 overflow-y-auto pr-2">
-              {bulkPreview.map((item) => (
-                <div
-                  key={`${item.sourceRow}-${item.draft.text}`}
-                  className="rounded-md border border-gray-200 bg-white p-3 shadow-sm"
-                >
-                  <div className="text-sm font-medium text-gray-900 line-clamp-2">
-                    {item.draft.text}
-                  </div>
-                  <div className="mt-1 flex flex-wrap gap-x-4 text-xs text-gray-500">
-                    <span>Dòng: {item.sourceRow}</span>
-                    <span>Định dạng: {item.draft.format === 'text' ? 'Tự luận' : 'Trắc nghiệm'}</span>
-                    <span>Phương án: {item.draft.options?.length ?? 0}</span>
-                    <span>Bắt buộc: {item.draft.required ? 'Có' : 'Không'}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        <div className="flex flex-wrap justify-end gap-3 pt-4 border-t border-gray-200">
-          <Button variant="outline" onClick={onCancel} disabled={isBulkSubmitting}>
-            Huỷ
-          </Button>
-          <Button
-            onClick={handleBulkSubmit}
-            disabled={
-              isBulkSubmitting ||
-              !bulkPreview.length ||
-              hasBlockingErrors ||
-              !targetRole.trim()
-            }
-            className="bg-blue-600 hover:bg-blue-700"
-          >
-            {isBulkSubmitting ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <Upload className="mr-2 h-4 w-4" />
+                Xóa hết
+              </Button>
             )}
-            {bulkPreview.length > 0 ? `Tạo ${bulkPreview.length} câu hỏi` : 'Tạo câu hỏi'}
+          </div>
+
+          {!targetRole && (
+            <p className="text-sm text-gray-500 italic">⚠️ Vui lòng chọn vị trí ở bước 1 trước</p>
+          )}
+        </div>
+
+        {/* Thông báo lỗi */}
+        {hasErrors && (
+          <div className="bg-red-50 border-2 border-red-200 rounded-lg p-4 animate-in fade-in">
+            <div className="flex items-start gap-2 text-red-800 font-medium mb-2">
+              <AlertCircle className="w-5 h-5 mt-0.5 flex-shrink-0" />
+              <span>Có lỗi trong dữ liệu, vui lòng sửa:</span>
+            </div>
+            <ul className="list-disc list-inside text-sm text-red-700 space-y-1 ml-6">
+              {bulkMessages.map((msg, idx) => (
+                <li key={idx}>{msg.text}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* Thông báo thành công */}
+        {hasPreview && !hasErrors && (
+          <div className="bg-green-50 border-2 border-green-200 rounded-lg p-4 animate-in fade-in">
+            <div className="flex items-center gap-3">
+              <div className="bg-green-500 p-2 rounded-full">
+                <Check className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <p className="font-semibold text-green-900">Tuyệt vời! Đã nhận diện {bulkPreview.length} câu hỏi</p>
+                <p className="text-sm text-green-700">Nhấn nút "Thêm câu hỏi" bên dưới để hoàn tất</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Nút hành động */}
+        <div className="flex items-center justify-between pt-4 border-t-2">
+          <Button variant="outline" onClick={onCancel} className="px-6">
+            Hủy
           </Button>
+
+          {!hasPreview ? (
+            <Button
+              onClick={handleBulkPreview}
+              disabled={!bulkInput.trim() || !targetRole}
+              size="lg"
+              className="bg-blue-600 hover:bg-blue-700 px-8 text-base font-semibold"
+            >
+              {!targetRole ? '⚠️ Chọn vị trí trước' : !hasInput ? '⚠️ Nhập câu hỏi trước' : '✓ Kiểm tra dữ liệu'}
+            </Button>
+          ) : (
+            <Button
+              onClick={handleBulkSubmit}
+              disabled={isBulkSubmitting}
+              size="lg"
+              className="bg-green-600 hover:bg-green-700 px-8 text-base font-semibold"
+            >
+              {isBulkSubmitting ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin mr-2" />
+                  Đang thêm...
+                </>
+              ) : (
+                <>
+                  <Plus className="w-5 h-5 mr-2" />
+                  Thêm {bulkPreview.length} câu hỏi
+                </>
+              )}
+            </Button>
+          )}
         </div>
       </div>
     );
@@ -911,14 +770,16 @@ const QuestionForm: React.FC<QuestionFormProps> = ({
       {isEdit ? (
         renderSingleForm(false)
       ) : (
-        <Tabs value={mode} onValueChange={handleTabChange} className="space-y-4">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="single">Nhập từng câu</TabsTrigger>
-            <TabsTrigger value="bulk">Tải lên hàng loạt</TabsTrigger>
-          </TabsList>
-          <TabsContent value="single">{renderSingleForm(true)}</TabsContent>
-          <TabsContent value="bulk">{renderBulkForm()}</TabsContent>
-        </Tabs>
+        // TODO: Bulk upload feature - will be implemented later
+        // <Tabs value={mode} onValueChange={handleTabChange} className="space-y-4">
+        //   <TabsList className="grid w-full grid-cols-2">
+        //     <TabsTrigger value="single">Nhập từng câu</TabsTrigger>
+        //     <TabsTrigger value="bulk">Tải lên hàng loạt</TabsTrigger>
+        //   </TabsList>
+        //   <TabsContent value="single">{renderSingleForm(true)}</TabsContent>
+        //   <TabsContent value="bulk">{renderBulkForm()}</TabsContent>
+        // </Tabs>
+        renderSingleForm(true)
       )}
     </div>
   );
