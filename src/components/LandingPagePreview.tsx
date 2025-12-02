@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import { LandingPage } from '../types/landingPage';
 import { useToast } from './ui/use-toast';
-import { updateLandingPageData } from '../lib/api';
+// import { updateLandingPageData } from '../lib/api';
 
 interface LandingPagePreviewProps {
   data: LandingPage;
@@ -51,7 +51,9 @@ const EditableText: React.FC<{
     if (tempValue !== value) {
       onSave(tempValue);
       try {
-        await updateLandingPageData({ heroTitle: tempValue });
+        // TODO: Re-enable when landing page API is ready
+        // await updateLandingPageData({ heroTitle: tempValue });
+        console.log('Landing page update temporarily disabled');
         toast({ title: 'Đã lưu', description: 'Nội dung đã được cập nhật.' });
       } catch (error) {
         toast({ title: 'Lỗi', description: 'Không thể lưu nội dung.', variant: 'destructive' });
@@ -170,12 +172,15 @@ const LandingPagePreview: React.FC<LandingPagePreviewProps> = ({
         const base = reader.result as string;
         try {
           if (field === 'heroImage') {
-            await updateLandingPageData({ heroImage: base });
+            // TODO: Re-enable when landing page API is ready
+            // await updateLandingPageData({ heroImage: base });
+            console.log('Landing page image update temporarily disabled');
             onUpdate({ heroImage: base });
           } else {
-            await updateLandingPageData({
-              aPlayerCandidate: { ...data.aPlayerCandidate, image: base },
-            });
+            // TODO: Re-enable when landing page API is ready
+            // await updateLandingPageData({
+            //   aPlayerCandidate: { ...data.aPlayerCandidate, image: base },
+            // });
             onUpdate({
               aPlayerCandidate: {
                 ...data.aPlayerCandidate,

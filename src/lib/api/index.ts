@@ -1,8 +1,18 @@
 ﻿export * from './types';
 
-export { getLandingPageData, updateLandingPageData } from './landingPage';
-export { getRoles, createRole, updateRoleDuration, deleteRole } from './roles';
-export { getQuestionsByRole, createQuestion, updateQuestion, deleteQuestion } from './questions';
+export { getAIInsights } from './aiInsightsBackend';
+
+export { getRoles, createRole, updateRoleDuration, deleteRole } from './rolesBackend';
+export { getQuestionsByRole, createQuestion, updateQuestion, deleteQuestion } from './questionsBackend';
+export {
+  getAssessments,
+  getAssessmentById,
+  createAssessment,
+  updateAssessment,
+  deleteAssessment,
+  type Assessment,
+  type CreateAssessmentRequest
+} from './assessmentsBackend';
 export {
   fetchQuestionsFromApi,
   fetchQuestionByIdFromApi,
@@ -13,5 +23,5 @@ export {
   updateQuestionOptionViaApi,
   deleteQuestionOptionViaApi,
 } from './questionApi';
-export { getAnalyticsData, type AnalyticsCandidateRow } from './analytics';
-export { updateCandidateInfo, getCandidateDetails, getCandidates, getCandidateAnswers, type CandidateAnswer } from './candidates';
+export { getAnalyticsData, getAnalyticsOverview, type AnalyticsCandidateRow } from './analyticsBackend';
+export { updateCandidateInfo, getCandidateDetails, getCandidates, getCandidateAnswers, type CandidateAnswer } from './candidatesBackend';

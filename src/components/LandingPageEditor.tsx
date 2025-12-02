@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import { useToast } from './ui/use-toast';
 import { LandingPage } from '../types/landingPage';
-import { getLandingPageData, updateLandingPageData } from '../lib/api';
+// import { getLandingPageData, updateLandingPageData } from '../lib/api';
 import LandingPagePreview from './LandingPagePreview';
 
 const LandingPageEditor: React.FC = () => {
@@ -31,7 +31,9 @@ const LandingPageEditor: React.FC = () => {
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        const data = await getLandingPageData();
+        // TODO: Re-enable when landing page API is ready
+        // const data = await getLandingPageData();
+        const data = null; // Temporary placeholder
         setFormData(data);
         setHistory([data]);
         setHistoryIndex(0);
@@ -85,7 +87,9 @@ const LandingPageEditor: React.FC = () => {
   const handleSave = async () => {
     if (!formData) return;
     try {
-      await updateLandingPageData(formData);
+      // TODO: Re-enable when landing page API is ready
+      // await updateLandingPageData(formData);
+      console.log('Landing page save temporarily disabled');
       setHasChanges(false);
       toast({
         title: 'Đã lưu',
