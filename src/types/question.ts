@@ -40,6 +40,7 @@ export interface Question {
   correctAnswer?: string;
   duration?: number; // Duration in minutes
   points?: number;
+  role?: string;
 }
 
 export interface QuestionsByRole {

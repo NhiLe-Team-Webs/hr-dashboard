@@ -102,7 +102,6 @@ const QuestionEditor = () => {
           grouped[role].push(q);
         });
 
-        console.log('DEBUG: QuestionEditor - Grouped questions:', grouped);
         setQuestions(grouped);
       } catch (error) {
         console.error('DEBUG: QuestionEditor - Error fetching questions:', error);

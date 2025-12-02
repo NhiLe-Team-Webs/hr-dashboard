@@ -200,7 +200,7 @@ export const CandidateDetail = ({ candidateId }: CandidateDetailProps) => {
   const recommendedRoles = aiInsights?.recommendedRoles ?? [];
   const developmentSuggestions = aiInsights?.developmentSuggestions ?? [];
   const analysisCompletedAt = aiInsights?.analysisCompletedAt ? formatDate(aiInsights.analysisCompletedAt) : null;
-  
+
   console.log('[CandidateDetail] Attempt data:', {
     hasAttempt: !!attempt,
     assessmentTitle: attempt?.assessmentTitle,
@@ -242,7 +242,7 @@ export const CandidateDetail = ({ candidateId }: CandidateDetailProps) => {
   const teamFitEntries = useMemo(() => {
     const record = aiInsights?.teamFit;
     console.log('[CandidateDetail] teamFit raw:', record);
-    
+
     if (!record) {
       return [] as string[];
     }
@@ -624,20 +624,20 @@ export const CandidateDetail = ({ candidateId }: CandidateDetailProps) => {
               </div>
               {getCheatingBadge(cheatingCount)}
             </div>
-            
+
             {cheatingEvents.length > 0 && (() => {
               const eventsByType = cheatingEvents.reduce((acc, event) => {
                 const type = event.type ?? 'unknown';
                 acc[type] = (acc[type] || 0) + 1;
                 return acc;
               }, {} as Record<string, number>);
-              
+
               const typeLabels: Record<string, string> = {
                 'tab_switch': 'Chuyển tab',
                 'copy_paste': 'Sao chép/Dán',
                 'unknown': 'Khác',
               };
-              
+
               return (
                 <div className="grid grid-cols-2 gap-2 text-sm">
                   {Object.entries(eventsByType).map(([type, count]) => (
@@ -755,6 +755,22 @@ export const CandidateDetail = ({ candidateId }: CandidateDetailProps) => {
               </div>
             </div>
           </div>
+
+          {teamFitEntries.length > 0 && (
+            <div>
+              <h3 className="font-semibold text-foreground mb-2 flex items-center gap-2">
+                <Users className="w-4 h-4" />
+                Team phù hợp
+              </h3>
+              <div className="flex flex-wrap gap-2">
+                {teamFitEntries.map((teamName) => (
+                  <Badge key={teamName} variant="secondary" className="text-xs">
+                    {teamName}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          )}
 
         </div>
 

@@ -80,13 +80,13 @@ interface AssessmentResult {
 
 const mapCandidate = (data: BackendCandidate): CandidateSummary => {
   console.log('Mapping candidate data:', data);
-  
+
   // Safely access results with null checks
   let aiInsights: CandidateAIInsights | undefined = undefined;
   if (data.results && data.results.length > 0) {
     const result = data.results[0] as AssessmentResult;
     console.log('Processing AI insights from result:', result);
-    
+
     // Calculate overall score from skill_scores if not provided
     let overallScore: number | undefined = result.overall_score;
     if (!overallScore && result.skill_scores) {
@@ -95,18 +95,23 @@ const mapCandidate = (data: BackendCandidate): CandidateSummary => {
         overallScore = scores.reduce((sum, score) => sum + score, 0) / scores.length;
       }
     }
-    
+
     // Normalize teamFit to array of strings
     let teamFit: string[] | undefined = undefined;
     if (result.team_fit) {
       if (Array.isArray(result.team_fit)) {
-        teamFit = result.team_fit;
+        // Check if it's an array of objects (new format) or strings (old format)
+        if (result.team_fit.length > 0 && typeof result.team_fit[0] === 'object') {
+          teamFit = (result.team_fit as any[]).map(t => t.name || t.id);
+        } else {
+          teamFit = result.team_fit as string[];
+        }
       } else if (typeof result.team_fit === 'object') {
         // If it's an object, extract keys or values
         teamFit = Object.keys(result.team_fit);
       }
     }
-    
+
     aiInsights = {
       overallScore,
       recommendedRoles: result.recommended_roles || [],
@@ -123,9 +128,9 @@ const mapCandidate = (data: BackendCandidate): CandidateSummary => {
         : (result.cheating_summary as unknown) as Record<string, unknown>,
       personalityTraits: Array.isArray(result.personality_traits)
         ? result.personality_traits.reduce((acc, trait, index) => {
-            acc[`trait_${index}`] = trait;
-            return acc;
-          }, {} as Record<string, unknown>)
+          acc[`trait_${index}`] = trait;
+          return acc;
+        }, {} as Record<string, unknown>)
         : result.personality_traits as Record<string, unknown>,
     };
   }
@@ -135,7 +140,7 @@ const mapCandidate = (data: BackendCandidate): CandidateSummary => {
   if (data.assessment_attempts && data.assessment_attempts.length > 0) {
     const firstAttempt = data.assessment_attempts[0] as AssessmentAttempt;
     console.log('Processing first attempt:', firstAttempt);
-    
+
     attempt = {
       id: firstAttempt.id,
       status: firstAttempt.status as CandidateAttemptStatus,
@@ -146,6 +151,9 @@ const mapCandidate = (data: BackendCandidate): CandidateSummary => {
       submittedAt: firstAttempt.submitted_at,
       completedAt: firstAttempt.completed_at,
       durationSeconds: firstAttempt.duration_seconds,
+      averageSecondsPerQuestion: firstAttempt.answered_count > 0
+        ? firstAttempt.duration_seconds / firstAttempt.answered_count
+        : 0,
       assessmentTitle: firstAttempt.assessment?.title,
       assessmentRole: firstAttempt.assessment?.target_role,
       aiStatus: firstAttempt.ai_status,
@@ -201,6 +209,9 @@ const mapCandidateDetail = (data: BackendCandidate): CandidateDetailSummary => {
       submittedAt: attempt.submitted_at,
       completedAt: attempt.completed_at,
       durationSeconds: attempt.duration_seconds,
+      averageSecondsPerQuestion: attempt.answered_count > 0
+        ? attempt.duration_seconds / attempt.answered_count
+        : 0,
       assessmentTitle: attempt.assessment?.title,
       assessmentRole: attempt.assessment?.target_role,
       aiStatus: attempt.ai_status,

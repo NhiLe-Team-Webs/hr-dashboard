@@ -37,6 +37,7 @@ export const getQuestionsByRole = async (role?: string): Promise<Question[]> => 
         }),
         correctAnswer: question.correct_answer as string,
         points: question.points as number,
+        role: question.role as string,
       };
     });
   } catch (error) {
