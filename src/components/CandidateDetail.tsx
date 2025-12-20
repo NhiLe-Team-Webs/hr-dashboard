@@ -1,4 +1,6 @@
 ﻿import { useEffect, useMemo, useState } from 'react';
+import { LoadingPage } from '@/components/ui/loading-spinner';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   Calendar,
   User,
@@ -281,7 +283,36 @@ export const CandidateDetail = ({ candidateId }: CandidateDetailProps) => {
       .join(' ');
 
   if (loading) {
-    return <div className="text-center p-8">Đang tải thông tin ứng viên...</div>;
+    return (
+      <div className="space-y-6 animate-in fade-in duration-500">
+        {/* Header Skeleton */}
+        <div className="glass-panel border-white/60 p-6 rounded-[2rem] text-center space-y-4">
+          <Skeleton className="w-20 h-20 rounded-full mx-auto" />
+          <Skeleton className="h-8 w-48 mx-auto" />
+          <Skeleton className="h-6 w-32 mx-auto rounded-full" />
+        </div>
+
+        <div className="grid gap-6 md:grid-cols-2">
+          {/* Info Card Skeleton */}
+          <div className="glass-panel border-white/60 p-6 rounded-[2rem] space-y-4">
+            <Skeleton className="h-6 w-40" />
+            <div className="space-y-2">
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-3/4" />
+              <Skeleton className="h-4 w-5/6" />
+            </div>
+          </div>
+          {/* Stats Skeleton */}
+          <div className="glass-panel border-white/60 p-6 rounded-[2rem] space-y-4">
+            <Skeleton className="h-6 w-40" />
+            <div className="grid grid-cols-2 gap-4">
+              <Skeleton className="h-24 rounded-xl" />
+              <Skeleton className="h-24 rounded-xl" />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   if (error || !candidate) {

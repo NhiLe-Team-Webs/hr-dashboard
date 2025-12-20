@@ -1,4 +1,6 @@
-﻿import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { LoadingPage } from '@/components/ui/loading-spinner';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   Plus,
   Search,
@@ -148,7 +150,38 @@ export const CandidateList = () => {
   };
 
   if (loading) {
-    return <div className="text-center p-8">Đang tải danh sách ứng viên...</div>;
+    return (
+      <div className="space-y-6">
+        {/* Header Skeleton */}
+        <div className="flex flex-col md:flex-row gap-4 justify-between items-start md:items-center">
+          <Skeleton className="h-10 w-48" />
+          <div className="flex gap-2">
+            <Skeleton className="h-10 w-32" />
+            <Skeleton className="h-10 w-32" />
+          </div>
+        </div>
+        {/* Card Skeletons */}
+        <div className="grid gap-4">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="glass-panel border-white/60 p-6 rounded-[1.5rem]">
+              <div className="flex flex-col md:flex-row gap-4 justify-between">
+                <div className="flex gap-4">
+                  <Skeleton className="h-12 w-12 rounded-full" />
+                  <div className="space-y-2">
+                    <Skeleton className="h-5 w-40" />
+                    <Skeleton className="h-4 w-24" />
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Skeleton className="h-8 w-20 rounded-full" />
+                  <Skeleton className="h-8 w-20 rounded-full" />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
   }
 
   if (error) {
@@ -163,15 +196,15 @@ export const CandidateList = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-in fade-in duration-500">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Danh sách Ứng viên</h1>
-          <p className="text-muted-foreground">Quản lý và đánh giá hồ sơ ứng viên</p>
+          <h1 className="text-3xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-primary to-blue-600">Danh sách Ứng viên</h1>
+          <p className="text-muted-foreground mt-1">Quản lý và đánh giá hồ sơ ứng viên</p>
         </div>
         <Button
-          className="gap-2"
+          className="gap-2 rounded-xl shadow-lg shadow-primary/25 bg-gradient-to-r from-primary to-blue-600 hover:from-primary/90 hover:to-blue-600/90 border-0"
           onClick={() => {
             toast({
               title: 'Chức năng đang phát triển',
@@ -185,20 +218,20 @@ export const CandidateList = () => {
       </div>
 
       {/* Search and Filters */}
-      <Card className="p-4">
+      <Card className="p-4 glass-panel border border-white/60 rounded-[1.5rem] shadow-lg">
         <div className="flex flex-col sm:flex-row gap-3">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <div className="relative flex-1 group">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
             <Input
               placeholder="Tìm kiếm ứng viên theo tên, email hoặc vị trí..."
               value={searchTerm}
               onChange={(event) => setSearchTerm(event.target.value)}
-              className="pl-10"
+              className="pl-10 h-12 rounded-xl bg-white/50 border-white/50 focus:bg-white focus:ring-4 focus:ring-primary/10 transition-all font-medium"
             />
           </div>
           <div className="w-full sm:w-[200px]">
             <Select value={selectedTeam} onValueChange={setSelectedTeam}>
-              <SelectTrigger>
+              <SelectTrigger className="h-12 rounded-xl bg-white/50 border-white/50 focus:ring-4 focus:ring-primary/10 transition-all font-medium">
                 <SelectValue placeholder="Lọc theo team" />
               </SelectTrigger>
               <SelectContent>
@@ -253,12 +286,13 @@ export const CandidateList = () => {
             return (
               <Card
                 key={candidate.id}
-                className={`overflow-hidden cursor-pointer transition-all duration-200 hover:shadow-lg ${selectedCandidateId === candidate.authId
-                    ? 'ring-2 ring-primary/50 shadow-lg'
-                    : 'hover:shadow-md hover:scale-[1.02]'
+                className={`overflow-hidden cursor-pointer transition-all duration-300 glass-panel border border-white/60 rounded-[1.5rem] relative group ${selectedCandidateId === candidate.authId
+                  ? 'ring-2 ring-primary/50 shadow-xl scale-[1.01] bg-white/80'
+                  : 'hover:shadow-2xl hover:bg-white/90 hover:-translate-y-1'
                   }`}
                 onClick={() => handleCandidateClick(candidate.authId)}
               >
+                <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
                 <div className="p-6 space-y-4">
                   <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                     <div className="flex flex-1 items-start gap-4">

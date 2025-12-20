@@ -9,37 +9,38 @@ All colors MUST be HSL.
 @layer base {
   :root {
     /* Modern HR Dashboard Color Palette */
-    --background: 0 0 252;
-    --foreground: 203 23% 20%;
+    --background: 210 40% 98%;
+    /* Light blueish gray background */
+    --foreground: 222.2 84% 4.9%;
 
     --card: 0 0% 100%;
-    --card-foreground: 203 23% 20%;
+    --card-foreground: 222.2 84% 4.9%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 203 23% 20%;
+    --popover-foreground: 222.2 84% 4.9%;
 
-    /* Modern Blue Primary */
+    /* Modern Blue Primary - Keeping original hue */
     --primary: 217 91% 60%;
-    --primary-foreground: 0 0% 98%;
+    --primary-foreground: 210 40% 98%;
     --primary-hover: 217 91% 55%;
     --primary-glow: 217 91% 75%;
 
     /* Warm Gray Secondary */
-    --secondary: 215 16% 96%;
-    --secondary-foreground: 203 23% 20%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
 
-    --muted: 215 16% 96%;
-    --muted-foreground: 215 14% 52%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
 
-    --accent: 142 76% 36%;
-    --accent-foreground: 0 0% 98%;
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
 
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 0 0% 98%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
 
-    --border: 215 28% 92%;
-    --input: 215 28% 92%;
-    --ring: 217 91% 60%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 222.2 84% 4.9%;
 
     /* Success Colors */
     --success: 142 76% 36%;
@@ -73,19 +74,12 @@ All colors MUST be HSL.
     --radius: 0.75rem;
 
     --sidebar-background: 0 0% 98%;
-
     --sidebar-foreground: 240 5.3% 26.1%;
-
     --sidebar-primary: 240 5.9% 10%;
-
     --sidebar-primary-foreground: 0 0% 98%;
-
     --sidebar-accent: 240 4.8% 95.9%;
-
     --sidebar-accent-foreground: 240 5.9% 10%;
-
     --sidebar-border: 220 13% 91%;
-
     --sidebar-ring: 217.2 91.2% 59.8%;
   }
 
@@ -183,5 +177,19 @@ All colors MUST be HSL.
 
   .shadow-hover {
     box-shadow: var(--shadow-hover);
+  }
+}
+
+@layer components {
+  .glass-panel {
+    @apply bg-white/70 backdrop-blur-xl border border-white/50 shadow-xl;
+  }
+
+  .glass-button {
+    @apply bg-white/50 hover:bg-white/80 backdrop-blur-sm border border-white/30 shadow-sm transition-all duration-300;
+  }
+
+  .glass-input {
+    @apply bg-white/50 border-white/50 focus:bg-white/80 backdrop-blur-sm transition-all duration-300;
   }
 }

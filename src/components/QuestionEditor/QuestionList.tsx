@@ -2,6 +2,7 @@
 import { useState, Dispatch, SetStateAction, useCallback } from 'react';
 import { Plus, Edit3, Trash2, FileText, ChevronDown, ChevronUp, Copy, Loader2, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Card } from '@/components/ui/card';
 import { toast } from '@/components/ui/use-toast';
 import { QuestionsByRole, Question } from '@/types/question';
@@ -94,26 +95,26 @@ const QuestionList: React.FC<QuestionListProps> = ({
     return (
       <div className="p-6 space-y-4">
         {Array.from({ length: 3 }).map((_, index) => (
-          <Card key={index} className="overflow-hidden">
-            <div className="p-4 bg-gray-50 border-b border-gray-100">
-              <div className="flex items-center justify-between animate-pulse">
-                <div className="flex items-center gap-3">
-                  <div className="h-4 w-10 rounded bg-gray-200" />
-                  <div className="h-4 w-24 rounded bg-gray-200" />
-                  <div className="h-4 w-20 rounded bg-gray-200" />
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="h-8 w-8 rounded bg-gray-200" />
-                  <div className="h-8 w-8 rounded bg-gray-200" />
-                  <div className="h-8 w-8 rounded bg-gray-200" />
-                </div>
+          <div key={index} className="glass-panel border-white/60 rounded-[1.5rem] overflow-hidden p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Skeleton className="h-4 w-8 rounded" />
+                <Skeleton className="h-4 w-24 rounded" />
+                <Skeleton className="h-4 w-16 rounded" />
+              </div>
+              <div className="flex gap-2">
+                <Skeleton className="h-8 w-8 rounded-lg" />
+                <Skeleton className="h-8 w-8 rounded-lg" />
+                <Skeleton className="h-8 w-8 rounded-lg" />
               </div>
             </div>
-            <div className="p-4">
-              <div className="h-4 w-3/4 rounded bg-gray-200 animate-pulse mb-3" />
-              <div className="h-4 w-1/2 rounded bg-gray-100 animate-pulse" />
+            <div className="space-y-2">
+              <div className="space-y-2">
+                <Skeleton className="h-4 w-3/4 rounded" />
+                <Skeleton className="h-4 w-1/2 rounded" />
+              </div>
             </div>
-          </Card>
+          </div>
         ))}
       </div>
     );
@@ -127,31 +128,38 @@ const QuestionList: React.FC<QuestionListProps> = ({
             const isExpanded = expandedQuestions.has(question.id);
 
             return (
-              <Card key={question.id} className="overflow-hidden hover:shadow-md transition-all duration-200">
-                <div className="p-4 bg-gray-50 border-b border-gray-100">
+              <Card key={question.id} className="overflow-hidden bg-white/40 border-white/60 hover:bg-white/60 transition-all duration-300 shadow-sm hover:shadow-lg rounded-[1.5rem] group backdrop-blur-sm">
+                <div className="p-5 border-b border-white/20 bg-white/20">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <span className="text-sm font-medium text-gray-500">#{index + 1}</span>
-                      <div className="flex items-center gap-1 text-sm text-gray-500">
+                    <div className="flex items-center gap-4">
+                      <span className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100/50 text-sm font-bold text-blue-700">#{index + 1}</span>
+                      <div className="flex items-center gap-2 text-sm text-slate-600 font-medium">
                         {question.format === 'text' ? (
-                          <FileText className="w-4 h-4" />
+                          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-100/50 text-purple-700">
+                            <FileText className="w-4 h-4" />
+                            <span>Tự luận</span>
+                          </div>
                         ) : (
-                          <div className="w-4 h-4 border-2 border-current rounded-sm flex items-center justify-center">
-                            <div className="w-1.5 h-1.5 bg-current rounded-full"></div>
+                          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-100/50 text-emerald-700">
+                            <div className="w-4 h-4 border-2 border-current rounded-sm flex items-center justify-center">
+                              <div className="w-1.5 h-1.5 bg-current rounded-full"></div>
+                            </div>
+                            <span>Trắc nghiệm</span>
                           </div>
                         )}
-                        <span>{question.format === 'text' ? 'Tự luận' : 'Trắc nghiệm'}</span>
-                        <span className="mx-1">•</span>
-                        <span>{question.duration ? `${Math.round(question.duration / 60)} phút` : '5 phút'}</span>
+                        <span className="text-slate-300">•</span>
+                        <span className="flex items-center gap-1 px-3 py-1 rounded-full bg-amber-100/50 text-amber-700">
+                          {question.duration ? `${Math.round(question.duration / 60)} phút` : '5 phút'}
+                        </span>
                       </div>
                     </div>
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                       {isMultipleChoiceFormat(question.format) && question.options?.length ? (
                         <Button
                           variant="ghost"
                           size="sm"
                           onClick={() => toggleExpanded(question.id)}
-                          className="text-gray-500 hover:text-blue-600"
+                          className="h-8 w-8 rounded-full hover:bg-white/60 hover:text-blue-600"
                         >
                           {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                         </Button>
@@ -160,7 +168,7 @@ const QuestionList: React.FC<QuestionListProps> = ({
                         variant="ghost"
                         size="sm"
                         onClick={() => handleDuplicateQuestion(question)}
-                        className="text-gray-500 hover:text-blue-600"
+                        className="h-8 w-8 rounded-full hover:bg-white/60 hover:text-blue-600"
                       >
                         <Copy className="w-4 h-4" />
                       </Button>
@@ -168,7 +176,7 @@ const QuestionList: React.FC<QuestionListProps> = ({
                         variant="ghost"
                         size="sm"
                         onClick={() => setEditingQuestion(question)}
-                        className="text-gray-500 hover:text-blue-600"
+                        className="h-8 w-8 rounded-full hover:bg-white/60 hover:text-blue-600"
                       >
                         <Edit3 className="w-4 h-4" />
                       </Button>
@@ -176,7 +184,7 @@ const QuestionList: React.FC<QuestionListProps> = ({
                         variant="ghost"
                         size="sm"
                         onClick={() => handleDeleteQuestion(question.id)}
-                        className="text-gray-500 hover:text-red-600"
+                        className="h-8 w-8 rounded-full hover:bg-white/60 hover:text-red-600"
                         disabled={deletingQuestionId === question.id}
                       >
                         {deletingQuestionId === question.id ? (
@@ -200,11 +208,10 @@ const QuestionList: React.FC<QuestionListProps> = ({
                         {question.options.map((option) => (
                           <div
                             key={option.id}
-                            className={`flex items-start gap-3 p-3 rounded-lg border ${
-                              option.isCorrect 
-                                ? 'border-green-300 bg-green-50' 
-                                : 'border-gray-200 bg-white'
-                            } text-gray-700`}
+                            className={`flex items-start gap-3 p-3 rounded-lg border ${option.isCorrect
+                              ? 'border-green-300 bg-green-50'
+                              : 'border-gray-200 bg-white'
+                              } text-gray-700`}
                           >
                             {option.isCorrect ? (
                               <div className="w-5 h-5 mt-0.5 rounded-full bg-green-600 flex items-center justify-center flex-shrink-0">
@@ -230,14 +237,16 @@ const QuestionList: React.FC<QuestionListProps> = ({
           })}
         </div>
       ) : (
-        <div className="p-12 text-center border-2 border-dashed border-gray-200">
-          <FileText className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">Chưa có câu hỏi nào</h3>
-          <p className="text-gray-600 mb-6 max-w-md mx-auto">
-            Bắt đầu tạo câu hỏi đánh giá cho vị trí <strong>{selectedRole}</strong> để xây dựng bộ đề thi chuyên nghiệp
+        <div className="p-12 text-center border-2 border-dashed border-slate-200/60 rounded-[2rem] bg-white/30 backdrop-blur-sm mx-6 mb-6">
+          <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-blue-50/50 flex items-center justify-center">
+            <FileText className="w-10 h-10 text-blue-400" />
+          </div>
+          <h3 className="text-xl font-bold text-slate-900 mb-2">Chưa có câu hỏi nào</h3>
+          <p className="text-slate-500 mb-8 max-w-md mx-auto font-medium">
+            Bắt đầu tạo câu hỏi đánh giá cho vị trí <span className="text-blue-600">{selectedRole}</span> để xây dựng bộ đề thi chuyên nghiệp
           </p>
-          <Button onClick={handleStartCreate} className="bg-blue-600 hover:bg-blue-700">
-            <Plus className="w-4 h-4 mr-2" />
+          <Button onClick={handleStartCreate} className="rounded-xl shadow-lg shadow-blue-500/25 bg-blue-600 hover:bg-blue-700 h-12 px-8 text-base">
+            <Plus className="w-5 h-5 mr-2" />
             Tạo câu hỏi đầu tiên
           </Button>
         </div>

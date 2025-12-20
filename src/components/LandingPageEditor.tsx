@@ -1,5 +1,7 @@
 // src/components/LandingPageEditor.tsx
 import React, { useState, useEffect } from 'react';
+import { LoadingPage } from './ui/loading-spinner';
+import { Skeleton } from './ui/skeleton';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { Card, CardContent } from './ui/card';
@@ -104,12 +106,49 @@ const LandingPageEditor: React.FC = () => {
     }
   };
 
+
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2" />
-          <p>Đang tải trình chỉnh sửa...</p>
+      <div className="min-h-screen space-y-6">
+        {/* Toolbar Skeleton */}
+        <div className="glass-panel border-b border-white/40 px-6 py-4 mx-auto max-w-[1400px]">
+          <div className="flex justify-between items-center">
+            <Skeleton className="h-8 w-64" />
+            <div className="flex gap-2">
+              <Skeleton className="h-10 w-10 rounded-full" />
+              <Skeleton className="h-10 w-10 rounded-full" />
+              <Skeleton className="h-10 w-10 rounded-full" />
+              <Skeleton className="h-10 w-32 rounded-xl" />
+            </div>
+          </div>
+        </div>
+
+        <div className="flex flex-col lg:flex-row gap-6 p-6 max-w-[1400px] mx-auto h-[calc(100vh-100px)]">
+          {/* Editor Panel Skeleton */}
+          <div className="w-full lg:w-1/2 flex flex-col gap-6">
+            <div className="glass-panel p-6 rounded-[2rem] space-y-4">
+              <Skeleton className="h-6 w-48" />
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-32 w-full" />
+            </div>
+            <div className="glass-panel p-6 rounded-[2rem] space-y-4 flex-1">
+              <Skeleton className="h-6 w-48" />
+              <div className="space-y-4 mt-4">
+                <Skeleton className="h-16 w-full rounded-xl" />
+                <Skeleton className="h-16 w-full rounded-xl" />
+                <Skeleton className="h-16 w-full rounded-xl" />
+              </div>
+            </div>
+          </div>
+          {/* Preview Panel Skeleton */}
+          <div className="hidden lg:block w-1/2">
+            <div className="glass-panel p-4 rounded-[2rem] h-full flex flex-col">
+              <div className="flex justify-center mb-4">
+                <Skeleton className="h-8 w-32 rounded-full" />
+              </div>
+              <Skeleton className="flex-1 w-full rounded-xl border border-slate-200" />
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -129,14 +168,14 @@ const LandingPageEditor: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-transparent">
       {/* Top toolbar */}
-      <div className="bg-white border-b px-6 py-4 sticky top-0 z-10 shadow-sm">
+      <div className="glass-panel border-b border-white/40 px-6 py-4 sticky top-0 z-10 shadow-sm backdrop-blur-md bg-white/70 rounded-none lg:rounded-b-2xl mx-auto max-w-[1400px]">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <h1 className="text-lg font-semibold text-slate-900">Trình chỉnh sửa Landing Page</h1>
+            <h1 className="text-lg font-bold text-slate-900 tracking-tight">Trình chỉnh sửa Landing Page</h1>
             {hasChanges && (
-              <Badge variant="destructive" className="animate-pulse">
+              <Badge variant="destructive" className="animate-pulse shadow-md">
                 Thay đổi chưa lưu
               </Badge>
             )}
@@ -213,15 +252,15 @@ const LandingPageEditor: React.FC = () => {
       <div className="p-6">
         {!isPreviewMode && (
           <div className="mb-6">
-            <Card className="bg-sky-50 border-sky-100">
+            <Card className="glass-panel border-sky-100/50 bg-sky-50/50 rounded-2xl shadow-sm">
               <CardContent className="p-4">
                 <div className="flex items-start gap-3">
-                  <div className="p-2 rounded bg-sky-100">
+                  <div className="p-2 rounded-xl bg-sky-100 shadow-inner">
                     <Mouse className="w-5 h-5 text-sky-700" />
                   </div>
                   <div>
-                    <div className="font-medium text-sky-800">Chế độ chỉnh sửa</div>
-                    <p className="text-sm text-sky-700/90 mt-1">
+                    <div className="font-bold text-sky-800">Chế độ chỉnh sửa</div>
+                    <p className="text-sm text-sky-700/90 mt-1 font-medium">
                       Chọn phần tử để chỉnh sửa. Thay đổi sẽ tự lưu khi bạn rời khỏi trường (auto-save).
                       Dùng Undo/Redo nếu cần.
                     </p>

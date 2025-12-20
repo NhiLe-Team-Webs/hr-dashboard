@@ -1,10 +1,9 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff, Shield, AlertCircle, Loader2 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from './ui/use-toast';
 
@@ -15,7 +14,7 @@ const Login: React.FC = () => {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
+  const [error, setError] = useState<string | null>(null);
 
   // Redirect if already logged in
   React.useEffect(() => {
@@ -24,39 +23,22 @@ const Login: React.FC = () => {
     }
   }, [status, session, navigate]);
 
-  const validateForm = () => {
-    const newErrors: { email?: string; password?: string } = {};
-    
-    if (!email) {
-      newErrors.email = 'Vui lòng nhập email';
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      newErrors.email = 'Email không hợp lệ';
-    }
-    
-    if (!password) {
-      newErrors.password = 'Vui lòng nhập mật khẩu';
-    } else if (password.length < 6) {
-      newErrors.password = 'Mật khẩu phải có ít nhất 6 ký tự';
-    }
-    
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!validateForm()) {
+    setError(null);
+
+    if (!email || !password) {
+      setError('Vui lòng điền đầy đủ thông tin');
       return;
     }
-    
+
     setIsLoading(true);
-    setErrors({});
-    
+
     try {
       const { error } = await signInWithPassword(email, password);
-      
+
       if (error) {
+        setError(error);
         toast({
           title: 'Đăng nhập thất bại',
           description: error,
@@ -71,6 +53,7 @@ const Login: React.FC = () => {
       }
     } catch (error) {
       console.error('Login error:', error);
+      setError('Đã xảy ra lỗi. Vui lòng thử lại.');
       toast({
         title: 'Đăng nhập thất bại',
         description: 'Đã xảy ra lỗi. Vui lòng thử lại.',
@@ -82,73 +65,86 @@ const Login: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold text-center">HR Dashboard</CardTitle>
-          <CardDescription className="text-center">
-            Đăng nhập để truy cập hệ thống quản lý nhân sự
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+    <div className="min-h-screen flex items-center justify-center p-4 overflow-hidden relative bg-slate-50">
+      {/* Animated Background */}
+      <div className="absolute inset-0 bg-gradient-to-tr from-blue-500/20 via-transparent to-cyan-500/20 pointer-events-none" />
+
+      <div className="w-full max-w-md glass-panel rounded-[2.5rem] p-8 md:p-12 relative z-10 shadow-2xl border border-white/40">
+        <div className="text-center pb-8">
+          <div className="mx-auto mb-6 h-20 w-20 rounded-[2rem] bg-gradient-to-br from-primary to-blue-400 flex items-center justify-center shadow-lg shadow-primary/30 ring-4 ring-white/50 transform rotate-3 hover:rotate-0 transition-transform duration-300">
+            <Shield className="h-10 w-10 text-white" />
+          </div>
+          <h1 className="text-3xl font-black text-slate-800 tracking-tight">Chào mừng!</h1>
+          <p className="text-slate-500 mt-2 font-medium">Đăng nhập HR Dashboard</p>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {error && (
+            <div className="flex items-center gap-2 p-4 rounded-2xl bg-red-50 border border-red-100 text-red-600 text-sm font-medium animate-in slide-in-from-top-2">
+              <AlertCircle className="h-4 w-4 flex-shrink-0" />
+              <span>{error}</span>
+            </div>
+          )}
+
+          <div className="space-y-2">
+            <Label htmlFor="email" className="text-slate-700 font-bold ml-1">Email</Label>
+            <div className="relative group">
               <Input
                 id="email"
                 type="email"
-                placeholder="Nhập email của bạn"
+                placeholder="ten@congty.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                className="pl-4 h-12 rounded-2xl bg-white/50 border-white/50 focus:bg-white focus:ring-4 focus:ring-primary/20 transition-all font-medium text-slate-800 placeholder:text-slate-400"
+                required
                 disabled={isLoading}
-                className={errors.email ? 'border-red-500' : ''}
               />
-              {errors.email && (
-                <p className="text-sm text-red-500">{errors.email}</p>
-              )}
             </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="password">Mật khẩu</Label>
-              <div className="relative">
-                <Input
-                  id="password"
-                  type={showPassword ? 'text' : 'password'}
-                  placeholder="Nhập mật khẩu của bạn"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  disabled={isLoading}
-                  className={errors.password ? 'border-red-500 pr-10' : 'pr-10'}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 focus:outline-none"
-                  disabled={isLoading}
-                  aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
-                >
-                  {showPassword ? (
-                    <EyeOff className="h-4 w-4" />
-                  ) : (
-                    <Eye className="h-4 w-4" />
-                  )}
-                </button>
-              </div>
-              {errors.password && (
-                <p className="text-sm text-red-500">{errors.password}</p>
-              )}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="password" className="text-slate-700 font-bold ml-1">Mật khẩu</Label>
+            <div className="relative group">
+              <Input
+                id="password"
+                type={showPassword ? 'text' : 'password'}
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="pl-4 pr-12 h-12 rounded-2xl bg-white/50 border-white/50 focus:bg-white focus:ring-4 focus:ring-primary/20 transition-all font-medium text-slate-800"
+                required
+                disabled={isLoading}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-4 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-primary transition-colors focus:outline-none"
+              >
+                {showPassword ? (
+                  <EyeOff className="h-5 w-5" />
+                ) : (
+                  <Eye className="h-5 w-5" />
+                )}
+              </button>
             </div>
-            
-            <Button
-              type="submit"
-              className="w-full"
-              disabled={isLoading}
-            >
-              {isLoading ? 'Đang đăng nhập...' : 'Đăng nhập'}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
+          </div>
+
+          <Button
+            type="submit"
+            className="w-full h-12 rounded-2xl bg-gradient-to-r from-primary to-blue-600 hover:from-primary/90 hover:to-blue-600/90 shadow-lg shadow-primary/25 text-lg font-bold tracking-wide transition-all transform hover:scale-[1.02] active:scale-[0.98]"
+            disabled={isLoading}
+          >
+            {isLoading ? (
+              <>
+                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                Đang xử lý...
+              </>
+            ) : (
+              'Đăng nhập'
+            )}
+          </Button>
+        </form>
+      </div>
     </div>
   );
 };

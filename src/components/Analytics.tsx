@@ -1,9 +1,10 @@
-// src/components/Analytics.tsx
 import { useEffect, useRef, useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { getAnalyticsData, type CandidateAIInsights, type CandidateAttemptStatus } from '@/lib/api';
 import Chart from 'chart.js/auto';
 import { Users, TrendingUp, Award, Target, Briefcase, CheckCircle2 } from 'lucide-react';
+import { LoadingPage } from '@/components/ui/loading-spinner';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface CandidateData {
   id: string;
@@ -230,7 +231,46 @@ export const Analytics = () => {
   }, [candidates, completedCandidates, averageSkillScores, statusCounts]);
 
   if (loading) {
-    return <div className="text-center p-8">Đang tải dữ liệu...</div>;
+    return (
+      <div className="space-y-8 animate-in fade-in duration-500">
+        <div className="flex flex-col space-y-2">
+          <Skeleton className="h-10 w-64" />
+          <Skeleton className="h-5 w-96" />
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="glass-panel p-6 rounded-[2rem] space-y-4">
+              <div className="flex justify-between items-start">
+                <div className="space-y-2">
+                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="h-8 w-16" />
+                </div>
+                <Skeleton className="h-10 w-10 rounded-xl" />
+              </div>
+              <Skeleton className="h-3 w-32" />
+            </div>
+          ))}
+        </div>
+
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-7">
+          <div className="col-span-4 glass-panel p-6 rounded-[2rem]">
+            <div className="mb-6">
+              <Skeleton className="h-6 w-48 mb-2" />
+              <Skeleton className="h-4 w-64" />
+            </div>
+            <Skeleton className="h-[300px] w-full rounded-xl" />
+          </div>
+          <div className="col-span-3 glass-panel p-6 rounded-[2rem]">
+            <div className="mb-6">
+              <Skeleton className="h-6 w-48 mb-2" />
+              <Skeleton className="h-4 w-64" />
+            </div>
+            <Skeleton className="h-[300px] w-full rounded-xl" />
+          </div>
+        </div>
+      </div>
+    );
   }
 
   if (error) {
@@ -238,54 +278,69 @@ export const Analytics = () => {
   }
 
   return (
-    <div className="space-y-6">
-      <header className="flex justify-between items-center">
-        <h1 className="font-bold text-3xl tracking-tight text-foreground">Phân tích & Báo cáo</h1>
+    <div className="space-y-6 animate-in fade-in duration-500">
+      <header className="flex justify-between items-center mb-6">
+        <div>
+          <h1 className="font-bold text-3xl tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-primary to-blue-600">Phân tích & Báo cáo</h1>
+          <p className="text-muted-foreground mt-1">Tổng quan hiệu suất và thông tin chi tiết</p>
+        </div>
       </header>
 
       <main>
         {/* KPI Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <Card className="p-6 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 border-blue-200 dark:border-blue-700 rounded-3xl shadow-lg">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-blue-700 dark:text-blue-300 font-medium">Tổng ứng viên</h3>
-              <Users className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+          <Card className="p-6 glass-panel border border-white/40 rounded-[2rem] shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 relative overflow-hidden group">
+            <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+            <div className="relative z-10">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-blue-700 dark:text-blue-300 font-medium">Tổng ứng viên</h3>
+                <Users className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+              </div>
+              <p className="text-4xl font-bold text-blue-900 dark:text-blue-100">{totalCandidates}</p>
             </div>
-            <p className="text-4xl font-bold text-blue-900 dark:text-blue-100">{totalCandidates}</p>
           </Card>
 
-          <Card className="p-6 bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-900/20 dark:to-emerald-800/20 border-emerald-200 dark:border-emerald-700 rounded-3xl shadow-lg">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-emerald-700 dark:text-emerald-300 font-medium">Tỷ lệ hoàn thành</h3>
-              <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+          <Card className="p-6 glass-panel border border-white/40 rounded-[2rem] shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 relative overflow-hidden group">
+            <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+            <div className="relative z-10">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-emerald-700 dark:text-emerald-300 font-medium">Tỷ lệ hoàn thành</h3>
+                <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+              </div>
+              <p className="text-4xl font-bold text-emerald-900 dark:text-emerald-100">{completionRate.toFixed(0)}%</p>
+              <p className="text-sm text-emerald-600 dark:text-emerald-400 mt-1">{statusCounts.completed}/{totalCandidates} ứng viên</p>
             </div>
-            <p className="text-4xl font-bold text-emerald-900 dark:text-emerald-100">{completionRate.toFixed(0)}%</p>
-            <p className="text-sm text-emerald-600 dark:text-emerald-400 mt-1">{statusCounts.completed}/{totalCandidates} ứng viên</p>
           </Card>
 
-          <Card className="p-6 bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 border-purple-200 dark:border-purple-700 rounded-3xl shadow-lg">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-purple-700 dark:text-purple-300 font-medium">Đang chờ xử lý</h3>
-              <TrendingUp className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+          <Card className="p-6 glass-panel border border-white/40 rounded-[2rem] shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 relative overflow-hidden group">
+            <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+            <div className="relative z-10">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-purple-700 dark:text-purple-300 font-medium">Đang chờ xử lý</h3>
+                <TrendingUp className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+              </div>
+              <p className="text-4xl font-bold text-purple-900 dark:text-purple-100">{statusCounts.awaiting_ai + statusCounts.in_progress}</p>
+              <p className="text-sm text-purple-600 dark:text-purple-400 mt-1">
+                {statusCounts.in_progress} đang làm, {statusCounts.awaiting_ai} chờ AI
+              </p>
             </div>
-            <p className="text-4xl font-bold text-purple-900 dark:text-purple-100">{statusCounts.awaiting_ai + statusCounts.in_progress}</p>
-            <p className="text-sm text-purple-600 dark:text-purple-400 mt-1">
-              {statusCounts.in_progress} đang làm, {statusCounts.awaiting_ai} chờ AI
-            </p>
           </Card>
 
-          <Card className="p-6 bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-900/20 dark:to-amber-800/20 border-amber-200 dark:border-amber-700 rounded-3xl shadow-lg">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-amber-700 dark:text-amber-300 font-medium">Chưa bắt đầu</h3>
-              <Award className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+          <Card className="p-6 glass-panel border border-white/40 rounded-[2rem] shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 relative overflow-hidden group">
+            <div className="absolute inset-0 bg-gradient-to-br from-amber-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+            <div className="relative z-10">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-amber-700 dark:text-amber-300 font-medium">Chưa bắt đầu</h3>
+                <Award className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+              </div>
+              <p className="text-4xl font-bold text-amber-900 dark:text-amber-100">{statusCounts.not_started}</p>
             </div>
-            <p className="text-4xl font-bold text-amber-900 dark:text-amber-100">{statusCounts.not_started}</p>
           </Card>
         </div>
 
         {/* Charts Row 1 */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-          <Card className="p-6 bg-card border border-border rounded-3xl shadow-lg">
+          <Card className="p-6 glass-panel border border-white/40 rounded-[2rem] shadow-lg">
             <div className="flex items-center gap-2 mb-4">
               <Target className="h-5 w-5 text-emerald-600" />
               <h3 className="font-bold text-lg text-foreground">Kỹ năng trung bình</h3>
@@ -302,7 +357,7 @@ export const Analytics = () => {
           </Card>
 
           {/* Phần "Phân bổ theo vị trí" tạm thời comment lại */}
-          {/* <Card className="p-6 bg-card border border-border rounded-3xl shadow-lg">
+          {/* <Card className="p-6 glass-panel border border-white/40 rounded-[2rem] shadow-lg">
             <div className="flex items-center gap-2 mb-4">
               <Briefcase className="h-5 w-5 text-blue-600" />
               <h3 className="font-bold text-lg text-foreground">Phân bổ theo vị trí</h3>
@@ -312,7 +367,7 @@ export const Analytics = () => {
             </div>
           </Card> */}
 
-          <Card className="p-6 bg-card border border-border rounded-3xl shadow-lg">
+          <Card className="p-6 glass-panel border border-white/40 rounded-[2rem] shadow-lg">
             <h3 className="font-bold text-lg mb-4 text-foreground">Trạng thái đánh giá</h3>
             <div className="h-80">
               <canvas ref={statusChartRef}></canvas>
@@ -323,7 +378,7 @@ export const Analytics = () => {
         {/* Charts Row 2 */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
 
-          <Card className="p-6 bg-card border border-border rounded-3xl shadow-lg">
+          <Card className="p-6 glass-panel border border-white/40 rounded-[2rem] shadow-lg">
             <h3 className="font-bold text-lg mb-4 text-foreground">Điểm mạnh phổ biến</h3>
             <div className="space-y-3">
               {topStrengths.length > 0 ? (
@@ -339,7 +394,7 @@ export const Analytics = () => {
             </div>
           </Card>
 
-          <Card className="p-6 bg-card border border-border rounded-3xl shadow-lg">
+          <Card className="p-6 glass-panel border border-white/40 rounded-[2rem] shadow-lg">
             <h3 className="font-bold text-lg mb-4 text-foreground">Vai trò được gợi ý</h3>
             <div className="space-y-3">
               {topRecommendedRoles.length > 0 ? (

@@ -171,82 +171,85 @@ const QuestionEditor = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-4xl mx-auto p-6 space-y-6">
+    <div className="min-h-screen bg-transparent">
+      <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in duration-500">
         {/* Header */}
-        <div className="bg-white rounded-xl shadow-sm border p-6">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Quản lý Câu hỏi Đánh giá</h1>
-              <p className="text-gray-600 mt-1">Tạo và quản lý ngân hàng câu hỏi cho từng vị trí tuyển dụng</p>
+        <div className="glass-panel border border-white/40 rounded-[2rem] shadow-xl p-8 relative overflow-hidden group">
+          <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+          <div className="relative z-10">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <div>
+                <h1 className="text-3xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-primary to-blue-600">Quản lý Câu hỏi</h1>
+                <p className="text-muted-foreground mt-1">Tạo và quản lý ngân hàng câu hỏi cho từng vị trí tuyển dụng</p>
+              </div>
+              <div className="flex gap-2 flex-wrap">
+                <Dialog open={showRoleManager} onOpenChange={setShowRoleManager}>
+                  <DialogTrigger asChild>
+                    <Button variant="outline" className="glass-button rounded-xl border-white/40 hover:bg-white/60">
+                      <Settings className="w-4 h-4 mr-2" />
+                      Quản lý vị trí
+                    </Button>
+                  </DialogTrigger>
+                  <RoleManager
+                    roles={roles}
+                    questions={questions}
+                    setRoles={setRoles}
+                    setQuestions={handleSetQuestions}
+                    onClose={() => setShowRoleManager(false)}
+                  />
+                </Dialog>
+                <Button
+                  onClick={handleStartCreate}
+                  className="rounded-xl shadow-lg shadow-primary/25 bg-gradient-to-r from-primary to-blue-600 hover:from-primary/90 hover:to-blue-600/90 border-0"
+                  disabled={isLoadingRoles || isLoadingQuestions || !selectedRole}
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Thêm câu hỏi mới
+                </Button>
+              </div>
             </div>
-            <div className="flex gap-2 flex-wrap">
-              <Dialog open={showRoleManager} onOpenChange={setShowRoleManager}>
-                <DialogTrigger asChild>
-                  <Button variant="outline">
-                    <Settings className="w-4 h-4 mr-2" />
-                    Quản lý vị trí
-                  </Button>
-                </DialogTrigger>
-                <RoleManager
-                  roles={roles}
-                  questions={questions}
-                  setRoles={setRoles}
-                  setQuestions={handleSetQuestions}
-                  onClose={() => setShowRoleManager(false)}
-                />
-              </Dialog>
-              <Button
-                onClick={handleStartCreate}
-                className="bg-blue-600 hover:bg-blue-700"
-                disabled={isLoadingRoles || isLoadingQuestions || !selectedRole}
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Thêm câu hỏi mới
-              </Button>
-            </div>
-          </div>
 
-          {/* Stats - Hiển thị thống kê cho vai trò hiện tại */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6 pt-6 border-t border-gray-100">
-            <div className="text-center">
-              <div className="text-2xl font-bold text-blue-600">
-                {currentQuestions.length}
+            {/* Stats - Hiển thị thống kê cho vai trò hiện tại */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-8 pt-8 border-t border-slate-200/60">
+              <div className="text-center p-4 rounded-2xl bg-white/40 border border-white/40 shadow-sm">
+                <div className="text-3xl font-bold text-blue-600">
+                  {currentQuestions.length}
+                </div>
+                <div className="text-sm text-slate-600 font-medium">Tổng câu hỏi</div>
               </div>
-              <div className="text-sm text-gray-600">Tổng câu hỏi</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-purple-600">
-                {currentQuestions.filter(q => isTextFormat(q.format)).length}
+              <div className="text-center p-4 rounded-2xl bg-white/40 border border-white/40 shadow-sm">
+                <div className="text-3xl font-bold text-purple-600">
+                  {currentQuestions.filter(q => isTextFormat(q.format)).length}
+                </div>
+                <div className="text-sm text-slate-600 font-medium">Tự luận</div>
               </div>
-              <div className="text-sm text-gray-600">Tự luận</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-green-600">
-                {currentQuestions.filter(q => isMultipleChoiceFormat(q.format)).length}
+              <div className="text-center p-4 rounded-2xl bg-white/40 border border-white/40 shadow-sm">
+                <div className="text-3xl font-bold text-green-600">
+                  {currentQuestions.filter(q => isMultipleChoiceFormat(q.format)).length}
+                </div>
+                <div className="text-sm text-slate-600 font-medium">Trắc nghiệm</div>
               </div>
-              <div className="text-sm text-gray-600">Trắc nghiệm</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-orange-600">{roles.length}</div>
-              <div className="text-sm text-gray-600">Vị trí</div>
+              <div className="text-center p-4 rounded-2xl bg-white/40 border border-white/40 shadow-sm">
+                <div className="text-3xl font-bold text-orange-600">{roles.length}</div>
+                <div className="text-sm text-slate-600 font-medium">Vị trí</div>
+              </div>
             </div>
           </div>
         </div>
 
         {/* Role Selection and Questions List */}
-        <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
-          <div className="p-6 border-b border-gray-100">
+        <div className="glass-panel border border-white/40 rounded-[2rem] shadow-xl overflow-hidden">
+          <div className="p-6 border-b border-white/20 bg-white/30 backdrop-blur-sm">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
-                <Label className="text-sm font-medium text-gray-700">Chọn vị trí:</Label>
+                <Label className="text-sm font-bold text-slate-700">Chọn vị trí:</Label>
                 <div className="flex items-center gap-2">
                   <Select
                     value={selectedRole}
                     onValueChange={setSelectedRole}
                     disabled={isLoadingRoles || roles.length === 0}
                   >
-                    <SelectTrigger className="w-80" disabled={isLoadingRoles || roles.length === 0}>
+                    <SelectTrigger className="w-80 h-11 rounded-xl bg-white/50 border-white/50 focus:ring-4 focus:ring-primary/10 transition-all font-medium" disabled={isLoadingRoles || roles.length === 0}>
                       <SelectValue placeholder={isLoadingRoles ? 'Đang tải vai trò...' : 'Chọn vai trò...'} />
                     </SelectTrigger>
                     <SelectContent>
