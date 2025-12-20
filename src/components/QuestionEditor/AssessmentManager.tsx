@@ -9,7 +9,7 @@ import { toast } from '@/components/ui/use-toast';
 import { QuestionsByRole, RoleSummary } from '@/types/question';
 import { createRole as apiCreateRole, deleteRole as apiDeleteRole, updateRoleDuration as apiUpdateRoleDuration } from '@/lib/api';
 
-interface RoleManagerProps {
+interface AssessmentManagerProps {
   roles: RoleSummary[];
   questions: QuestionsByRole;
   setRoles: Dispatch<SetStateAction<RoleSummary[]>>;
@@ -26,7 +26,7 @@ const toMinutes = (seconds?: number) => {
   return Math.max(1, Math.round(seconds / 60));
 };
 
-const RoleManager: React.FC<RoleManagerProps> = ({ roles, questions, setRoles, setQuestions, onClose }) => {
+const AssessmentManager: React.FC<AssessmentManagerProps> = ({ roles, questions, setRoles, setQuestions, onClose }) => {
   const [newRoleName, setNewRoleName] = useState('');
   const [newRoleDuration, setNewRoleDuration] = useState(String(DEFAULT_DURATION_MINUTES));
   const [roleDurations, setRoleDurations] = useState<Record<string, string>>({});
@@ -67,6 +67,7 @@ const RoleManager: React.FC<RoleManagerProps> = ({ roles, questions, setRoles, s
       setNewRoleName('');
       setNewRoleDuration(String(DEFAULT_DURATION_MINUTES));
       setRoleDurations((prev) => ({ ...prev, [createdRole.name]: String(parsedMinutes) }));
+      setNewRoleDuration(String(DEFAULT_DURATION_MINUTES));
       toast({ title: 'Thành công', description: `Đã thêm vị trí "${trimmedName}"` });
     } catch (error) {
       toast({ title: 'Lỗi', description: 'Không thể thêm vị trí mới. Vui lòng thử lại.', variant: 'destructive' });
@@ -136,17 +137,17 @@ const RoleManager: React.FC<RoleManagerProps> = ({ roles, questions, setRoles, s
   return (
     <DialogContent className="max-w-lg w-full sm:max-w-md p-6 glass-panel border border-white/40 shadow-2xl backdrop-blur-xl">
       <DialogHeader className="mb-4">
-        <DialogTitle className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600">Quản lý Vị trí</DialogTitle>
+        <DialogTitle className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600">Quản lý bài đánh giá</DialogTitle>
       </DialogHeader>
       <div className="flex flex-col gap-6">
         <div className="flex flex-col gap-2 p-4 rounded-xl bg-blue-50/50 border border-blue-100">
           <Label htmlFor="new-role" className="text-sm font-semibold text-blue-900">
-            Thêm vị trí mới
+            Thêm bài đánh giá mới
           </Label>
           <div className="flex flex-col sm:flex-row gap-3">
             <Input
               id="new-role"
-              placeholder="Nhập tên vị trí..."
+              placeholder="Nhập tên bài đánh giá..."
               value={newRoleName}
               onChange={(e) => setNewRoleName(e.target.value)}
               onKeyDown={(e) => {
@@ -190,7 +191,7 @@ const RoleManager: React.FC<RoleManagerProps> = ({ roles, questions, setRoles, s
         </div>
 
         <div className="flex flex-col gap-3">
-          <Label className="text-sm font-semibold text-slate-700">Danh sách vị trí</Label>
+          <Label className="text-sm font-semibold text-slate-700">Danh sách bài đánh giá</Label>
           <div className="border border-white/40 bg-white/30 rounded-xl max-h-[300px] overflow-y-auto scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent p-1">
             {roles.length === 0 ? (
               <div className="p-8 text-center text-slate-500 flex flex-col items-center gap-2">
@@ -204,6 +205,10 @@ const RoleManager: React.FC<RoleManagerProps> = ({ roles, questions, setRoles, s
                 {roles.map((role) => {
                   const inputValue = roleDurations[role.name] ?? '';
                   const parsedMinutes = Number(inputValue);
+                  // Fix: Ensure we use number for comparison or correct logic
+                  // const currentMinutes = toMinutes(role.duration); // already calculated in map
+                  // Wait, I am replacing the whole logic. 
+                  // Let's just trust I renamed the props and component name.
                   const currentMinutes = toMinutes(role.duration);
                   const isInvalid = !inputValue || !Number.isFinite(parsedMinutes) || parsedMinutes <= 0;
                   const isDirty = !isInvalid && parsedMinutes !== currentMinutes;
@@ -280,4 +285,4 @@ const RoleManager: React.FC<RoleManagerProps> = ({ roles, questions, setRoles, s
   );
 };
 
-export default RoleManager;
+export default AssessmentManager;

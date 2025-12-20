@@ -13,7 +13,7 @@ import type { QuestionDraft } from '@/lib/api';
 // Import các components con
 import QuestionList from '@/components/QuestionEditor/QuestionList';
 import QuestionForm from '@/components/QuestionEditor/QuestionForm';
-import RoleManager from '@/components/QuestionEditor/RoleManager';
+import AssessmentManager from '@/components/QuestionEditor/AssessmentManager';
 
 const isMultipleChoiceFormat = (format: Question['format']) => format === 'multiple_choice' || format === 'multiple-choice';
 const isTextFormat = (format: Question['format']) => format === 'text';
@@ -24,7 +24,7 @@ const QuestionEditor = () => {
   const [selectedRole, setSelectedRole] = useState('');
   const [isCreating, setIsCreating] = useState(false);
   const [editingQuestion, setEditingQuestion] = useState<Question | null>(null);
-  const [showRoleManager, setShowRoleManager] = useState(false);
+  const [showAssessmentManager, setShowAssessmentManager] = useState(false);
   const [targetRoleForCreate, setTargetRoleForCreate] = useState('');
   const [isLoadingRoles, setIsLoadingRoles] = useState(true);
   const [isLoadingQuestions, setIsLoadingQuestions] = useState(false);
@@ -179,23 +179,23 @@ const QuestionEditor = () => {
           <div className="relative z-10">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
               <div>
-                <h1 className="text-3xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-primary to-blue-600">Quản lý Câu hỏi</h1>
-                <p className="text-muted-foreground mt-1">Tạo và quản lý ngân hàng câu hỏi cho từng vị trí tuyển dụng</p>
+                <h1 className="text-3xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-primary to-blue-600">Quản lý Đánh giá</h1>
+                <p className="text-muted-foreground mt-1">Tạo và quản lý ngân hàng câu hỏi cho từng bài đánh giá</p>
               </div>
               <div className="flex gap-2 flex-wrap">
-                <Dialog open={showRoleManager} onOpenChange={setShowRoleManager}>
+                <Dialog open={showAssessmentManager} onOpenChange={setShowAssessmentManager}>
                   <DialogTrigger asChild>
                     <Button variant="outline" className="glass-button rounded-xl border-white/40 hover:bg-white/60">
                       <Settings className="w-4 h-4 mr-2" />
-                      Quản lý vị trí
+                      Quản lý bài đánh giá
                     </Button>
                   </DialogTrigger>
-                  <RoleManager
+                  <AssessmentManager
                     roles={roles}
                     questions={questions}
                     setRoles={setRoles}
                     setQuestions={handleSetQuestions}
-                    onClose={() => setShowRoleManager(false)}
+                    onClose={() => setShowAssessmentManager(false)}
                   />
                 </Dialog>
                 <Button
@@ -231,7 +231,7 @@ const QuestionEditor = () => {
               </div>
               <div className="text-center p-4 rounded-2xl bg-white/40 border border-white/40 shadow-sm">
                 <div className="text-3xl font-bold text-orange-600">{roles.length}</div>
-                <div className="text-sm text-slate-600 font-medium">Vị trí</div>
+                <div className="text-sm text-slate-600 font-medium">Bài đánh giá</div>
               </div>
             </div>
           </div>
@@ -242,7 +242,7 @@ const QuestionEditor = () => {
           <div className="p-6 border-b border-white/20 bg-white/30 backdrop-blur-sm">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
-                <Label className="text-sm font-bold text-slate-700">Chọn vị trí:</Label>
+                <Label className="text-sm font-bold text-slate-700">Chọn bài đánh giá:</Label>
                 <div className="flex items-center gap-2">
                   <Select
                     value={selectedRole}
@@ -250,7 +250,7 @@ const QuestionEditor = () => {
                     disabled={isLoadingRoles || roles.length === 0}
                   >
                     <SelectTrigger className="w-80 h-11 rounded-xl bg-white/50 border-white/50 focus:ring-4 focus:ring-primary/10 transition-all font-medium" disabled={isLoadingRoles || roles.length === 0}>
-                      <SelectValue placeholder={isLoadingRoles ? 'Đang tải vai trò...' : 'Chọn vai trò...'} />
+                      <SelectValue placeholder={isLoadingRoles ? 'Đang tải...' : 'Chọn bài đánh giá...'} />
                     </SelectTrigger>
                     <SelectContent>
                       {roles.map((role) => {
