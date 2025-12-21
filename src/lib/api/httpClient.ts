@@ -11,6 +11,8 @@ interface RequestOptions extends RequestInit {
 
 class HttpClient {
   private baseUrl: string;
+  private isRefreshing = false;
+  private refreshPromise: Promise<string | null> | null = null;
 
   constructor(baseUrl: string) {
     this.baseUrl = baseUrl;
@@ -33,11 +35,63 @@ class HttpClient {
   }
 
   /**
+   * Refresh the access token
+   */
+  private async refreshAccessToken(): Promise<string | null> {
+    if (this.isRefreshing) {
+      return this.refreshPromise;
+    }
+
+    this.isRefreshing = true;
+    this.refreshPromise = (async () => {
+      try {
+        const authData = localStorage.getItem('hr-dashboard-auth');
+        if (!authData) return null;
+
+        const parsed = JSON.parse(authData);
+        const refreshToken = parsed.refresh_token;
+
+        if (!refreshToken) return null;
+
+        const response = await fetch(`${this.baseUrl}/hr/auth/refresh`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refresh_token: refreshToken })
+        });
+
+        if (!response.ok) {
+          throw new Error('Refresh failed');
+        }
+
+        const data = await response.json();
+
+        // Construct new session object matching AuthContext interface
+        const newSession = {
+          ...data.data.session,
+          user: data.data.user
+        };
+
+        localStorage.setItem('hr-dashboard-auth', JSON.stringify(newSession));
+        return newSession.access_token;
+      } catch (error) {
+        console.error('Token refresh failed:', error);
+        localStorage.removeItem('hr-dashboard-auth');
+        return null;
+      } finally {
+        this.isRefreshing = false;
+        this.refreshPromise = null;
+      }
+    })();
+
+    return this.refreshPromise;
+  }
+
+  /**
    * Build URL with query parameters
    */
   private buildUrl(endpoint: string, params?: Record<string, unknown> | object): string {
     const url = new URL(`${this.baseUrl}${endpoint}`);
-    
+
     if (params) {
       const paramsObj = params as Record<string, unknown>;
       Object.entries(paramsObj).forEach(([key, value]) => {
@@ -61,7 +115,7 @@ class HttpClient {
     const url = this.buildUrl(endpoint, params);
 
     // Add authentication header
-    const token = this.getAuthToken();
+    let token = this.getAuthToken();
     const headers: HeadersInit = {
       'Content-Type': 'application/json',
       ...fetchOptions.headers,
@@ -72,17 +126,30 @@ class HttpClient {
     }
 
     try {
-      const response = await fetch(url, {
+      let response = await fetch(url, {
         ...fetchOptions,
         headers,
       });
 
-      // Handle 401 Unauthorized - token expired or invalid
+      // Handle 401 Unauthorized - try to refresh token
       if (response.status === 401) {
-        // Clear auth data and redirect to login
-        localStorage.removeItem('hr-dashboard-auth');
-        window.location.href = '/login';
-        throw new Error('Session expired. Please login again.');
+        token = await this.refreshAccessToken();
+
+        if (token) {
+          // Retry request with new token
+          headers['Authorization'] = `Bearer ${token}`;
+          response = await fetch(url, {
+            ...fetchOptions,
+            headers,
+          });
+        }
+
+        // If still 401 or refresh failed
+        if (response.status === 401) {
+          localStorage.removeItem('hr-dashboard-auth');
+          window.location.href = '/login';
+          throw new Error('Session expired. Please login again.');
+        }
       }
 
       // Parse response
